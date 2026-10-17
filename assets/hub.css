@@ -1,0 +1,199 @@
+/* VillageHub — components added on top of the ServiDEX-V2 design system (styles.css).
+ * Uses only the theme tokens from styles.css, so theme presets, dark mode and Native UI apply here too. */
+
+/* ---------- Home ---------- */
+.hello { padding: 2px 6px 6px; font-size: var(--fs-20); letter-spacing: -.02em; color: var(--muted); }
+.hello b { color: var(--text); font-weight: 800; }
+.sec-head .cnt { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; margin-left: 6px; border-radius: var(--r-pill); background: var(--accent); color: var(--on-accent); font-size: var(--fs-11); font-weight: 800; vertical-align: 2px; }
+.act-row { width: 100%; text-align: left; align-items: center; padding: 10px 12px; }
+.act-row + .act-row { margin-top: 8px; }
+.act-row .sb-ic { width: 34px; height: 34px; }
+.act-row h3 { font-size: var(--fs-14); }
+.act-row p { font-size: var(--fs-12); margin-top: 1px; }
+.act-row > .ic:last-child { opacity: .6; flex: none; }
+
+.ev { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 14px; border-bottom: 1px solid var(--line); text-align: left; }
+.ev:last-child { border-bottom: 0; }
+.ev:active { background: var(--bg); }
+.ev-date { width: 44px; height: 46px; flex: none; border-radius: var(--r); background: var(--secondary-50); color: var(--secondary-d); display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.05; }
+.ev-date b { font-size: var(--fs-17); font-weight: 800; }
+.ev-date span { font-size: var(--fs-11); font-weight: 600; text-transform: uppercase; }
+.ev-date.live { background: var(--error); color: var(--on-dark); }
+.ev-date.live b { font-size: var(--fs-11); letter-spacing: .06em; }
+
+/* Service cards */
+.svc-card { position: relative; width: 250px; flex: none; text-align: left; background: var(--card); border-radius: var(--r-lg); padding: 14px; box-shadow: var(--sh-1); border: 1px solid var(--border-soft); transition: transform .12s ease; }
+.svc-card:active { transform: scale(.985); }
+.svc-card.wide { display: block; width: 100%; }
+.svc-card.wide + .svc-card.wide { margin-top: 10px; }
+.svc-card.add { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; width: 150px; color: var(--link); border: 1.5px dashed var(--muted-2); background: transparent; box-shadow: none; }
+.sc-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.sc-stats div { display: flex; flex-direction: column; min-width: 0; }
+.sc-stats b { font-size: var(--fs-14); font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sc-stats span { font-size: var(--fs-11); color: var(--muted); }
+.act-dot { flex: none; min-width: 22px; height: 22px; padding: 0 6px; border-radius: var(--r-pill); background: var(--accent); color: var(--on-accent); font-size: var(--fs-11); font-weight: 800; display: grid; place-items: center; }
+.mod-ic { display: inline-grid; place-items: center; flex: none; border-radius: var(--r); background: var(--tint); color: var(--fg); }
+.phone.ui-native .svc-card { border: 0; box-shadow: none; }
+
+/* Create New catalogue */
+.mod-card { display: flex; align-items: flex-start; gap: 14px; width: 100%; text-align: left; background: var(--card); border-radius: var(--r-lg); padding: 16px; box-shadow: var(--sh-1); border: 1px solid var(--border-soft); }
+.mod-card + .mod-card { margin-top: 10px; }
+.mod-card .li-chev { align-self: center; }
+.mod-card.soon { opacity: .72; padding: 12px 14px; align-items: center; }
+.phone.ui-native .mod-card { border: 0; box-shadow: none; }
+
+/* Tab bar: raised Create button in the middle */
+.tab-create .tab-ic { width: 46px; height: 46px; margin-top: -18px; border-radius: 50%; display: grid; place-items: center; background: var(--action); color: var(--on-secondary); box-shadow: 0 6px 16px color-mix(in srgb, var(--secondary) 35%, transparent), 0 0 0 4px var(--card); transition: transform .15s; }
+.tab-create:active .tab-ic { transform: scale(.92); }
+.tab-create .tab-l { color: var(--link); }
+.android .tab-create .tab-ic, .phone.nav-themed .tab-create .tab-ic { background: var(--action); color: var(--on-secondary); }
+.phone.nav-float .tab-create .tab-ic { margin-top: 0; width: 40px; height: 40px; box-shadow: none; }
+.phone.nav-icons .tab-create .tab-ic { margin-top: 0; }
+
+/* Simulated push banner */
+.push { position: absolute; z-index: 96; top: 48px; left: 10px; right: 10px; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 18px; background: color-mix(in srgb, var(--card) 88%, transparent); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); box-shadow: var(--sh-2), 0 0 0 1px var(--border-soft); transform: translateY(-140%); opacity: 0; transition: transform .35s cubic-bezier(.2, .8, .2, 1), opacity .25s; cursor: pointer; text-align: left; }
+.push.show { transform: none; opacity: 1; }
+.push .grow b { display: block; font-size: var(--fs-13); }
+.push .grow span { display: block; font-size: var(--fs-12); color: var(--muted-strong); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.push-ic { flex: none; }
+
+/* ---------- Meters & bars ---------- */
+.meter { height: 6px; border-radius: var(--r-pill); background: var(--line); overflow: hidden; margin-top: 8px; }
+.meter i { display: block; height: 100%; border-radius: inherit; background: var(--secondary); transition: width .4s; }
+.meter.light { background: color-mix(in srgb, var(--on-dark) 20%, transparent); }
+.meter.light i { background: var(--on-dark); }
+.split-bar { height: 8px; border-radius: var(--r-pill); background: var(--info); overflow: hidden; }
+.split-bar i { display: block; height: 100%; background: var(--success); }
+
+/* ---------- Module heroes ---------- */
+.chit-hero, .tem-hero { padding: 16px; }
+.tem-hero { background: linear-gradient(130deg, var(--primary) 0%, color-mix(in srgb, var(--primary) 55%, var(--accent)) 75%, var(--accent) 120%); }
+.hero-big { font-size: var(--fs-28); font-weight: 800; letter-spacing: -.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.p-hero .h2, .p-hero .h3 { color: inherit; }
+.p-hero .btn-white { flex: none; }
+.p-hero .online-row b { font-size: var(--fs-13); }
+.live-dot { width: 9px; height: 9px; border-radius: 50%; background: #FF453A; flex: none; box-shadow: 0 0 0 0 rgba(255, 69, 58, .6); animation: livePulse 1.4s infinite; }
+@keyframes livePulse { 70% { box-shadow: 0 0 0 8px rgba(255, 69, 58, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 69, 58, 0); } }
+.live-pill { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-11); font-weight: 800; letter-spacing: .08em; padding: 4px 10px; border-radius: var(--r-pill); background: color-mix(in srgb, var(--on-dark) 14%, transparent); }
+
+/* ---------- Settlement breakdown ---------- */
+.calc { display: grid; }
+.calc-row { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px dashed var(--border); align-items: flex-start; }
+.calc-row:last-child { border-bottom: 0; }
+.calc-row .cl { display: block; font-size: var(--fs-13); font-weight: 600; }
+.calc-row small { display: block; font-size: var(--fs-11); color: var(--muted); margin-top: 1px; }
+.calc-row b { font-size: var(--fs-14); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.calc-row.hl b { color: var(--link); }
+.calc-row.bad b { color: var(--error); }
+.chks { display: grid; gap: 6px; }
+.chk { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border-radius: var(--r-sm); background: var(--success-50); color: var(--success-ink); font-size: var(--fs-12); }
+.chk.bad { background: var(--error-50); color: var(--error-ink); }
+.chk .ic { margin-top: 1px; }
+.chk b { display: block; font-weight: 700; }
+.chk small { display: block; font-variant-numeric: tabular-nums; opacity: .9; }
+
+/* ---------- Rounds ---------- */
+.rd { padding: 12px 14px; }
+.rd + .rd { margin-top: 10px; }
+.rnd { width: 28px; height: 28px; flex: none; border-radius: var(--r-sm); display: grid; place-items: center; font-size: var(--fs-12); font-weight: 800; background: var(--line); color: var(--muted-strong); }
+.rnd.done { background: var(--success-50); color: var(--success-ink); }
+.rnd.live { background: var(--error); color: var(--on-dark); }
+.rd-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 6px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.rd-grid div { display: flex; flex-direction: column; min-width: 0; }
+.rd-grid span { font-size: var(--fs-11); color: var(--muted); }
+.rd-grid b { font-size: var(--fs-13); font-variant-numeric: tabular-nums; }
+.more-rounds { margin-top: 10px; }
+.more-rounds summary { list-style: none; cursor: pointer; padding: 6px 0; }
+.more-rounds[open] summary { margin-bottom: 10px; }
+details > summary { cursor: pointer; }
+
+/* ---------- Live auction room ---------- */
+.auc-hero { position: relative; overflow: hidden; border-radius: var(--r-xl); padding: 18px; color: var(--on-dark); background: var(--g-prov); text-align: center; }
+.auc-hero .row { text-align: left; }
+.auc-hero.lead { background: linear-gradient(130deg, color-mix(in srgb, var(--success) 70%, black) 0%, var(--success) 100%); }
+.auc-hero.wait { background: var(--g-cust); color: var(--on-secondary); padding: 22px 18px; }
+.auc-hero::after { content: ''; position: absolute; width: 180px; height: 180px; border-radius: 50%; right: -60px; top: -70px; background: color-mix(in srgb, var(--on-dark) 8%, transparent); }
+.auc-k { font-size: var(--fs-12); font-weight: 600; opacity: .8; text-transform: uppercase; letter-spacing: .06em; }
+.auc-amt { font-size: 40px; font-weight: 800; letter-spacing: -.03em; line-height: 1.1; margin: 2px 0 4px; font-variant-numeric: tabular-nums; }
+.auc-who { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-13); opacity: .9; }
+.auc-cd { display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-17); font-weight: 800; font-variant-numeric: tabular-nums; padding: 3px 10px; border-radius: var(--r-pill); background: color-mix(in srgb, var(--on-dark) 14%, transparent); }
+.cd-hot { color: #FFD60A; }
+.auc-split { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 14px; padding-top: 12px; border-top: 1px solid color-mix(in srgb, var(--on-dark) 22%, transparent); }
+.auc-split span { display: block; font-size: var(--fs-11); opacity: .8; }
+.auc-split b { font-size: var(--fs-14); font-variant-numeric: tabular-nums; }
+.bid-ctl { display: flex; align-items: center; gap: 10px; }
+.bid-ctl .iconbtn { width: 48px; height: 48px; border-radius: var(--r); background: var(--secondary-50); color: var(--secondary-d); font-size: 24px; font-weight: 700; }
+.bid-ctl .iconbtn:disabled { opacity: .4; }
+.bid-amt { flex: 1; text-align: center; font-size: var(--fs-28); font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.bid-feed .li.top { background: var(--success-50); }
+.bid-feed .li.rej { opacity: .7; }
+.bid-feed .li.rej b { text-decoration: line-through; color: var(--muted); }
+.bid-feed .li:first-child { animation: bidIn .4s ease; }
+@keyframes bidIn { from { background: var(--accent-50); } }
+
+/* Stepper: centre the −/+ glyphs (the global button reset left-aligns them) and fill the field width */
+.stepper button { display: grid; place-items: center; text-align: center; width: 44px; flex: none; }
+.field .stepper { display: flex; width: 100%; }
+.field .stepper span { flex: 1; }
+
+/* Suffix inputs (e.g. "5 %"): the ServiDEX prefix field pads only the leading label */
+.prefix-input input:first-child { padding-left: 12px; }
+.prefix-input input + span { padding: 0 12px 0 6px; }
+
+/* Range input */
+.range { width: 100%; margin: 10px 0 4px; accent-color: var(--secondary); height: 28px; }
+
+/* Tables */
+.sim-table { overflow-x: auto; padding: 4px 0; }
+.sim-table table { width: 100%; border-collapse: collapse; font-size: var(--fs-12); font-variant-numeric: tabular-nums; }
+.sim-table th { text-align: right; font-weight: 700; color: var(--muted); padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.sim-table td { text-align: right; padding: 7px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.sim-table th:first-child, .sim-table td:first-child { text-align: left; }
+.sim-table tr.on td { background: var(--secondary-50); font-weight: 700; }
+.sim-table tfoot td { font-weight: 800; border-bottom: 0; border-top: 1.5px solid var(--border); }
+
+/* Invite code */
+.invite-code { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border-radius: var(--r); background: var(--secondary-50); border: 1.5px dashed var(--secondary); }
+.invite-code .code { font-size: var(--fs-22); font-weight: 800; letter-spacing: .1em; color: var(--secondary-d); }
+
+/* ---------- Receipts ---------- */
+.receipt { position: relative; overflow: hidden; background: var(--card); border-radius: var(--r-lg); padding: 18px 16px; box-shadow: var(--sh-2); border: 1px solid var(--border-soft); }
+.receipt::before, .receipt::after { content: ''; position: absolute; left: -10px; right: -10px; height: 10px; background: radial-gradient(circle at 10px 0, transparent 7px, var(--card) 7.5px) repeat-x; background-size: 20px 10px; }
+.receipt::before { top: 0; transform: rotate(180deg); background-color: var(--bg); }
+.receipt::after { display: none; }
+.rc-mark { width: 44px; height: 44px; margin: 4px auto 0; border-radius: var(--r); display: grid; place-items: center; background: #FFE4E6; color: #BE123C; }
+.phone.theme-dark .rc-mark { background: color-mix(in srgb, #BE123C 26%, var(--card)); color: color-mix(in srgb, #BE123C 45%, white); }
+.rc-no { display: flex; justify-content: space-between; align-items: center; margin: 14px 0 10px; padding: 10px 12px; border-radius: var(--r-sm); background: var(--surface-2); font-size: var(--fs-12); color: var(--muted); }
+.rc-no b { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: var(--fs-15); color: var(--text); letter-spacing: .04em; }
+.receipt.void .rows, .receipt.void .rc-no b { opacity: .55; }
+.void-stamp { position: absolute; top: 46%; left: 50%; transform: translate(-50%, -50%) rotate(-18deg); font-size: 54px; font-weight: 900; letter-spacing: .12em; color: var(--error); border: 5px solid var(--error); border-radius: var(--r); padding: 0 14px; opacity: .55; pointer-events: none; }
+.receipt-mini { display: flex; align-items: center; gap: 8px; margin-top: 4px; padding: 10px 12px; border-radius: var(--r); background: var(--surface-2); font-size: var(--fs-12); color: var(--muted-strong); }
+.strike { text-decoration: line-through; }
+
+/* ---------- Audit, misc ---------- */
+.audit { padding: 12px 14px; background: var(--card); border-radius: var(--r); box-shadow: var(--sh-1); border: 1px solid var(--border-soft); border-left: 3px solid var(--secondary); }
+.audit + .audit { margin-top: 8px; }
+.phone.ui-native .audit { border-top: 0; border-right: 0; border-bottom: 0; box-shadow: none; }
+.unread-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--secondary); margin-top: 6px; flex: none; }
+.opt.err-opt { border-color: var(--error); }
+.mini .v.red, .v.red { color: var(--error); }
+.mini .v.green { color: var(--success-t); }
+.chip .ic { flex: none; }
+select.chip { appearance: none; cursor: pointer; }
+.li > .chip { height: 30px; }
+.chips.wrap .chip.on button { display: grid; place-items: center; margin-left: 2px; color: inherit; }
+.calc-sel .select { font-size: var(--fs-14); padding-left: 10px; padding-right: 30px; background-position: right 8px center; }
+
+/* ---------- Tamil ---------- */
+/* Inter has no Tamil glyphs; Noto Sans Tamil fills them in per character, so digits and ₹ stay in Inter. */
+body, .phone.ui-native { font-family: 'Inter', 'Noto Sans Tamil', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+.android body, .android button, .android input, .android textarea, .android select { font-family: 'Roboto', 'Noto Sans Tamil', system-ui, sans-serif; }
+.phone[lang="ta"] { line-height: 1.5; }
+.phone[lang="ta"] .h1, .phone[lang="ta"] .h2, .phone[lang="ta"] .lt-big, .phone[lang="ta"] .hello, .phone[lang="ta"] .appbar-title h2 { letter-spacing: 0; }
+.phone[lang="ta"] .h1 { font-size: var(--fs-20); line-height: 1.35; }
+.phone[lang="ta"] .lt-big { font-size: var(--fs-22); }
+.phone[lang="ta"] .tab { font-size: 10px; line-height: 1.2; text-align: center; }
+.phone[lang="ta"] .tab-l { max-width: 70px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.phone[lang="ta"] .tabs-line button { font-size: var(--fs-13); }
+.phone[lang="ta"] .seg button { font-size: var(--fs-12); gap: 3px; padding: 0 2px; }
+.auth-lang { padding-top: 20px; align-items: center; }

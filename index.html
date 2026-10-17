@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>VillageHub Prototype</title>
+  <meta name="description" content="Clickable mobile prototype of VillageHub: Chit Auction and Temple Vari Tharagar modules, with mock data.">
+  <!-- Installable app (PWA) -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#F8FAFC">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="VillageHub">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Tamil:wght@400;500;600;700;800&family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css">
+  <link rel="stylesheet" href="assets/hub.css">
+  <link rel="stylesheet" href="assets/demo.css">
+</head>
+<body>
+  <div class="stage">
+    <!-- Demo guide (not part of the app). Desktop: left panel. Phone: opens as a sheet from the Demo button. -->
+    <div class="panel-backdrop" id="panelBackdrop" onclick="Demo.closeGuide()"></div>
+    <aside class="panel" id="panel" aria-label="Demo guide">
+      <div class="panel-head">
+        <div class="row between">
+          <div class="panel-brand">VillageHub <span>Prototype</span></div>
+          <button class="panel-x" onclick="Demo.closeGuide()" aria-label="Close guide">✕</button>
+        </div>
+        <p>A clickable preview of the VillageHub app. All names, groups and amounts are sample data, and nothing is sent anywhere.</p>
+        <div class="demo-keys">
+          <div><span>Test OTP</span><b>123456</b></div>
+          <div><span>Join code</span><b>KWC-2026</b></div>
+        </div>
+      </div>
+
+      <div class="panel-sec">
+        <h4>Guided flows</h4>
+        <ol class="flows">
+          <li><div><b>Sign up as a new user</b><span>Mobile number → OTP → your name → empty home → Create a service.</span></div><button onclick="Panel.newUser()">Start</button></li>
+          <li><div><b>Create a chit group</b><span>Six-step setup with a live settlement preview. Saved as a draft as you go.</span></div><button onclick="Panel.jump('chitWizard')">Start</button></li>
+          <li><div><b>Run a live auction</b><span>Two-minute auction with other bidders → approve the result → send the payout.</span></div><button onclick="Panel.openAuction()">Start</button></li>
+          <li><div><b>Collect payments (organiser)</b><span>Verify an agent's cash entry, record cash for an overdue member, reverse with a reason.</span></div><button onclick="Panel.jump('chitHome',{id:'s_chit1',tab:'payments'})">Start</button></li>
+          <li><div><b>Pay your dues (member)</b><span>Your ledger in another chit. Pay round 3 by UPI and watch it confirm.</span></div><button onclick="Panel.jump('chitMember',{id:'s_chit2',mid:'m7'})">Start</button></li>
+          <li><div><b>Scheme calculator</b><span>Round-by-round simulation of a chit scheme.</span></div><button onclick="Panel.jump('chitCalc',{id:'s_chit1'})">Start</button></li>
+          <li><div><b>Temple collection &amp; receipt</b><span>Pick a family → amount and method → receipt. Void and reissue it.</span></div><button onclick="Panel.jump('templeCollect',{id:'s_tem1'})">Start</button></li>
+          <li><div><b>Join a group with a code</b><span>Enter <b>KWC-2026</b> → organiser approves → accept the rules.</span></div><button onclick="Panel.jump('join')">Start</button></li>
+        </ol>
+      </div>
+
+      <div class="panel-sec">
+        <h4>See it as a different role</h4>
+        <p class="panel-note">The demo user, Arun Kumar, has a different role in each service.</p>
+        <div class="panel-grid">
+          <button onclick="Panel.jump('home')">Home</button>
+          <button onclick="Panel.jump('activity')">Activity</button>
+          <button onclick="Panel.jump('chitHome',{id:'s_chit1'})">Chit organiser</button>
+          <button onclick="Panel.jump('chitHome',{id:'s_chit2'})">Chit member</button>
+          <button onclick="Panel.jump('templeHome',{id:'s_tem1'})">Temple admin</button>
+          <button onclick="Panel.jump('templeHome',{id:'s_tem2'})">Collector</button>
+          <button onclick="Panel.jump('templeHome',{id:'s_tem3'})">Temple family</button>
+          <button onclick="Panel.jump('chitHome',{id:'s_chit3'})">Not a member</button>
+          <button onclick="Panel.jump('templeReports',{id:'s_tem1'})">Temple reports</button>
+          <button onclick="Panel.jump('audit')">Audit history</button>
+        </div>
+      </div>
+
+      <div class="panel-sec">
+        <h4>Look &amp; language</h4>
+        <div class="panel-grid">
+          <button data-keep data-os="ios" onclick="Platform.set('ios')">iPhone look</button>
+          <button data-keep data-os="android" onclick="Platform.set('android')">Android look</button>
+          <button data-keep data-lang-btn="en" onclick="I18n.set('en')">English</button>
+          <button data-keep data-lang-btn="ta" onclick="I18n.set('ta')">தமிழ்</button>
+        </div>
+      </div>
+
+      <div class="panel-sec">
+        <h4>Demo data</h4>
+        <button class="panel-btn primary" onclick="Panel.loadDemo()">Load full demo (all roles)</button>
+        <button class="panel-btn" onclick="Panel.newUser()">Start over as a new user</button>
+      </div>
+
+      <div class="panel-sec" id="installSec">
+        <h4>Install on your phone</h4>
+        <button class="panel-btn primary" id="installBtn" hidden onclick="Demo.install()">Install VillageHub app</button>
+        <ul class="panel-list">
+          <li><b>iPhone:</b> open this page in Safari → Share → <b>Add to Home Screen</b>.</li>
+          <li><b>Android:</b> in Chrome, tap <b>Install</b> or ⋮ → <b>Install app</b>.</li>
+          <li>It then opens full-screen from its icon, like a normal app.</li>
+        </ul>
+      </div>
+
+      <details class="panel-sec panel-adv">
+        <summary>Advanced scenarios</summary>
+        <p class="panel-note">Simulate problems to see how the app handles them.</p>
+        <label class="panel-check"><input type="checkbox" id="simNoBids" onchange="Panel.sim('noBids',this.checked)"> Nobody else bids in the auction</label>
+        <label class="panel-check"><input type="checkbox" id="simPayout" onchange="Panel.sim('payoutFail',this.checked)"> Next payout transfer fails</label>
+        <label class="panel-check"><input type="checkbox" id="simUpi" onchange="Panel.sim('upiFail',this.checked)"> UPI / bank payments fail</label>
+        <label class="panel-check"><input type="checkbox" id="simOffline" onchange="Panel.sim('offline',this.checked)"> No internet connection</label>
+      </details>
+
+      <div class="panel-foot">Your progress is saved on this device. Use <b>Start over</b> to reset it.</div>
+    </aside>
+
+    <!-- Device -->
+    <div class="device">
+      <div class="phone" id="phone">
+        <div class="statusbar" id="statusbar">
+          <span id="clock">9:41</span>
+          <span class="sb-icons" id="sbIcons"></span>
+        </div>
+        <div class="notch"></div>
+        <button class="push" id="push" onclick="Push.open()"></button>
+        <main id="app"></main>
+        <div class="overlay" id="overlay"></div>
+        <div class="toast" id="toast"></div>
+        <div class="home-ind"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Phone only: opens the demo guide -->
+  <button class="demo-fab" id="demoFab" onclick="Demo.openGuide()" aria-label="Open demo guide">Demo</button>
+
+  <!-- First visit -->
+  <div class="welcome" id="welcome" hidden>
+    <div class="welcome-card" role="dialog" aria-modal="true" aria-labelledby="welcomeTitle">
+      <div class="welcome-mark" id="welcomeMark"></div>
+      <h2 id="welcomeTitle">Welcome to the VillageHub prototype</h2>
+      <p>This is a clickable preview of the app: chit groups with live auctions, and temple Vari Tharagar collections. Everything uses sample data.</p>
+      <div class="demo-keys">
+        <div><span>Test OTP</span><b>123456</b></div>
+        <div><span>Join code</span><b>KWC-2026</b></div>
+      </div>
+      <button class="welcome-btn primary" onclick="Demo.start('demo')">Explore the full demo</button>
+      <button class="welcome-btn" onclick="Demo.start('new')">Start as a new user</button>
+      <p class="welcome-hint" id="welcomeHint"></p>
+    </div>
+  </div>
+
+  <!-- Shared core (ServiDEX-V2 framework) -->
+  <script src="js/theme.js"></script>
+  <script src="js/icons.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/registry.js"></script>
+  <script src="js/router.js"></script>
+  <script src="js/motion.js"></script>
+  <!-- Modules: each registers itself with the registry -->
+  <script src="js/modules/chit/engine.js"></script>
+  <script src="js/modules/chit/chit.js"></script>
+  <script src="js/modules/chit/screens.js"></script>
+  <script src="js/modules/temple/temple.js"></script>
+  <script src="js/modules/temple/screens.js"></script>
+  <!-- Core screens + boot -->
+  <script src="js/screens/auth.js"></script>
+  <script src="js/screens/core.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/demo.js"></script>
+</body>
+</html>
