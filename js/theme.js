@@ -7,6 +7,15 @@
 
 const THEME_KEY = 'villagehub_theme';
 
+// Bump when the defaults change: older saved theme / navigation choices are dropped once so everyone gets the new defaults.
+const UI_DEFAULTS_VERSION = '2';
+try {
+  if (localStorage.getItem('villagehub_ui_v') !== UI_DEFAULTS_VERSION) {
+    [THEME_KEY, 'villagehub_nav_style', 'villagehub_nav_labels', 'villagehub_sheet_style'].forEach(k => localStorage.removeItem(k));
+    localStorage.setItem('villagehub_ui_v', UI_DEFAULTS_VERSION);
+  }
+} catch (e) { /* ignore */ }
+
 // Editable base colours, in the order shown in the Theme panel.
 const THEME_FIELDS = [
   ['primary', 'Primary', 'Dark buttons, provider gradient, toasts'],
