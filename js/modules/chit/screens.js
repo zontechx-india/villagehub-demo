@@ -144,8 +144,19 @@ const CW = {
     CW.sync(); if (!el) App.refresh();
   },
   sync() { const r = CW.p().r; r.contributionP = r.members ? r.poolP / r.members : 0; },
-  // Field → step map so "Next" only blocks on the current step's errors.
-  STEP_FIELDS: { 1: ['name'], 2: ['pool', 'members', 'rounds'], 3: ['startDate', 'minDiscount', 'maxDiscount', 'increment'], 4: ['fee', 'feeRounds', 'minDiscount'] },
+  // Field → section map, used to flag and open the sections that block publishing.
+  SECTION_FIELDS: { basics: ['name'], money: ['pool', 'members', 'rounds'], auction: ['startDate', 'minDiscount', 'maxDiscount', 'increment'], fee: ['fee', 'feeRounds', 'minDiscount'] },
+  toggle(k) {
+    const p = CW.p(); p.open[k] = !p.open[k];
+    if (k === 'members' && p.open[k]) CW.ensureDraft();
+    App.refresh();
+  },
+  jump(k) {
+    const p = CW.p(); p.open[k] = true; if (k === 'members') CW.ensureDraft();
+    App.refresh();
+    const el = document.getElementById('sec-' + k), c = document.querySelector('#app .content');
+    if (el && c) c.scrollTo({ top: Math.max(0, el.offsetTop - 8), behavior: 'smooth' });
+  },
   ensureDraft() {
     const p = CW.p();
     if (p.id) return p.id;
@@ -159,20 +170,9 @@ const CW = {
   },
   save(silent) {
     const p = CW.p(), id = CW.ensureDraft();
-    Chit.saveDraft(id, p.r, p.step);
+    Chit.saveDraft(id, p.r, 1);
     if (!silent) UI.toast('Draft saved · find it in My Services', 'ok');
   },
-  next() {
-    const p = CW.p(), v = ChitEngine.validate(p.r, rs);
-    const errs = (CW.STEP_FIELDS[p.step] || []).filter(k => v.errors[k]);
-    if (errs.length) { p.showErr = true; App.refresh(); UI.toast('Check the highlighted fields', 'err'); return; }
-    p.showErr = false;
-    if (p.step === 1) CW.ensureDraft();
-    p.step++; CW.save(true);
-    App.refresh();
-    const c = document.querySelector('#app .content'); if (c) c.scrollTop = 0;
-  },
-  prev() { const p = CW.p(); if (p.step > 1) { p.step--; App.refresh(); } else App.back(); },
   opts(k, map, subs) {
     const r = CW.p().r;
     return Object.entries(map).map(([v, l]) => `<button class="opt ${String(r[k]) === v ? 'on' : ''}" onclick="CW.set('${k}', ${typeof r[k] === 'boolean' ? v : `'${v}'`})"><span class="radio"></span><span class="grow"><span class="b">${l}</span>${subs && subs[v] ? `<span class="xs muted">${subs[v]}</span>` : ''}</span></button>`).join('');
@@ -209,9 +209,16 @@ const CW = {
     UI.close(true); App.refresh();
   },
   publish() {
-    const p = CW.p();
-    if (!p.confirm) { p.showErr = true; App.refresh(); return UI.toast('Confirm the review statement first', 'err'); }
-    CW.save(true);
+    const p = CW.p(), v = ChitEngine.validate(p.r, rs), bad = Object.keys(CW.SECTION_FIELDS).filter(k => CW.SECTION_FIELDS[k].some(f => v.errors[f]));
+    if (bad.length || !p.confirm) {
+      p.showErr = true; bad.forEach(k => { p.open[k] = true; });
+      if (v.errors.feeRounds) p.open.advFee = true;
+      App.refresh();
+      if (bad.length) { UI.toast('Check the highlighted sections', 'err'); CW.jump(bad[0]); }
+      else { UI.toast('Confirm the review statement first', 'err'); const c = document.querySelector('#app .content'); if (c) c.scrollTo({ top: c.scrollHeight, behavior: 'smooth' }); }
+      return;
+    }
+    CW.ensureDraft(); CW.save(true);
     const g = Chit.g(p.id); g.dateEdits = p.dateEdits || [];
     UI.confirm({ title: 'Publish this chit?', message: `Rules v1 are locked once members accept. ${g.members.length - 1} member${g.members.length > 2 ? 's' : ''} will be invited to review and accept them.`, confirm: 'Publish', icon: 'send', onConfirm: () => Chit.publish(p.id) });
   }
@@ -222,24 +229,24 @@ App.reg('chitWizard', {
     if (!p.r) {
       const g = p.id && Chit.g(p.id);
       p.r = g ? JSON.parse(JSON.stringify(g.rules)) : ChitData.defaultRules();
-      p.step = p.step || (g && g.draftStep) || 1; p.sameRounds = p.r.members === p.r.rounds;
+      p.open = { basics: true, money: true, auction: true, fee: false, members: false, advAuction: false, advFee: false };
+      p.sameRounds = p.r.members === p.r.rounds;
       p.dateEdits = (g && g.dateEdits) || [];
     }
     const r = p.r, v = ChitEngine.validate(r, rs), E = k => p.showErr ? v.errors[k] : '';
-    const titles = ['Basic details', 'Money', 'Auction rules', 'Fee & dividend', 'Members & schedule', 'Review & publish'];
-    let body = '';
+    const B = {};
+    const adv = (key, label, html) => `<button class="adv-toggle" onclick="CW.p().open.${key}=!CW.p().open.${key};App.refresh()">${label}<span class="${p.open[key] ? 'up' : ''}">${icon('chevron', 16)}</span></button>${p.open[key] ? `<div class="adv-body">${html}</div>` : ''}`;
 
-    if (p.step === 1) body = `
-      <div class="info-card teal mb16">${icon('gavel', 16)}<div>Set up a chit group in 6 steps. Everything is saved as a <b>draft</b> until you publish.</div></div>
+    B.basics = `
       ${C.field('Chit name', `<input class="input ${E('name') ? 'err' : ''}" maxlength="60" value="${esc(r.name)}" placeholder="e.g. Thirumalai Nagar Chit · ₹1 Lakh" onchange="CW.set('name',this.value.trim())">`, { req: true, err: E('name') })}
       ${C.field('Description', `<textarea class="textarea" maxlength="200" placeholder="Purpose, where the auction happens" onchange="CW.set('desc',this.value)">${esc(r.desc)}</textarea>`, { opt: true })}
       <div class="label">Who can find it</div>
       ${CW.opts('visibility', { invite: 'Invite only', discoverable: 'Discoverable with code' }, { invite: 'Members join only through your invitation', discoverable: 'Anyone with the code can request to join; you approve' })}
-      <div class="card p mt16">${C.kv('globe', 'Currency', 'Indian Rupee (₹ INR)')}${C.kv('clock', 'Timezone', 'Asia/Kolkata (IST)')}${C.kv('user', 'Organiser', esc(S().user.name) + ' (you)')}</div>`;
+      <p class="xs muted mt12">₹ INR · Asia/Kolkata (IST) · Organiser: ${esc(S().user.name)} (you)</p>`;
 
-    if (p.step === 2) {
+    {
       const total = r.poolP * r.rounds;
-      body = `
+      B.money = `
       <div class="label">What does the chit amount mean?</div>
       ${CW.opts('poolMeaning', { monthly: 'Monthly gross pool', total: 'Total scheme value' }, { monthly: 'Collected in one round if every member pays', total: 'Across all rounds — the app divides it by rounds' })}
       <div class="mt16">${C.field(r.poolMeaning === 'total' ? 'Total scheme value' : 'Monthly gross pool', `<div class="chips wrap mb8">${[100000, 200000, 300000].map(x => `<button class="chip ${(r.poolMeaning === 'total' ? total : r.poolP) === RP(x) ? 'on' : ''}" onclick="CW.pool(${x})">₹${x / 100000} lakh</button>`).join('')}</div>
@@ -257,7 +264,7 @@ App.reg('chitWizard', {
       ${v.warnings.map(w => `<div class="info-card warn mt12">${icon('alert', 16)}<div>${w}</div></div>`).join('')}`;
     }
 
-    if (p.step === 3) body = `
+    B.auction = `
       <div class="label">How is the auction held?</div>
       ${CW.opts('auctionType', { live: 'Live in the app', offline: 'In person, organiser records it', hybrid: 'Hybrid' }, { live: 'Members bid from their phones; the server picks the winner', offline: 'Bids taken at the meeting and entered by the organiser', hybrid: 'In-person bids entered alongside app bids' })}
       <div class="row gap12 mt16"><div class="grow">${C.field('First auction date', `<input type="date" class="input ${E('startDate') ? 'err' : ''}" value="${r.startDate}" onchange="CW.set('startDate',this.value)">`, { err: E('startDate') })}</div>
@@ -267,36 +274,36 @@ App.reg('chitWizard', {
       <div class="row gap12"><div class="grow">${C.field('Minimum discount', CW.moneyIn('minDiscountP'), { err: E('minDiscount') && ' ' })}</div><div class="grow">${C.field('Maximum discount', CW.moneyIn('maxDiscountP'), { err: E('maxDiscount') && ' ' })}</div></div>
       ${E('minDiscount') || E('maxDiscount') ? `<div class="field-err mb12">${icon('alert', 13)}${E('minDiscount') || E('maxDiscount')}</div>` : ''}
       ${C.field('Minimum bid increment', CW.moneyIn('incrementP'), { err: E('increment') })}
-      <div class="label">Tie-break</div>${CW.opts('tieBreak', { first_bid: 'First bid wins', lots: 'Organiser draws lots' }, ChitEngine.TIE_BREAK)}
+      ${adv('advAuction', 'Advanced auction rules', `<div class="label">Tie-break</div>${CW.opts('tieBreak', { first_bid: 'First bid wins', lots: 'Organiser draws lots' }, ChitEngine.TIE_BREAK)}
       <div class="label mt16">If no valid bid is received</div>${CW.opts('noBid', { postpone: 'Postpone 7 days', lots: 'Draw lots at minimum discount', carry: 'Move to next round' }, ChitEngine.NO_BID)}
       <div class="group mt16">
         ${CW.tog('extend', 'Extend on late bids', 'A bid in the last 30 seconds adds 30 seconds')}
         ${CW.tog('preBid', 'Allow bids before the window opens', 'Off: bids only while the auction is live')}
         <div class="li"><span class="li-main"><span>Bid visibility</span><span class="xs muted">${r.bidVisibility === 'all' ? 'Members see every accepted bid' : 'Members see only the leading bid'}</span></span><select class="select" style="width:130px" onchange="CW.set('bidVisibility',this.value)"><option value="all" ${r.bidVisibility === 'all' ? 'selected' : ''}>All bids</option><option value="leading" ${r.bidVisibility === 'leading' ? 'selected' : ''}>Leading only</option></select></div>
         <div class="li"><span class="li-main"><span>Eligibility to bid</span><span class="xs muted">Active membership + accepted rules</span></span><select class="select" style="width:130px" onchange="CW.set('eligibility',this.value)"><option value="paid_up" ${r.eligibility === 'paid_up' ? 'selected' : ''}>Must be paid up</option><option value="any" ${r.eligibility === 'any' ? 'selected' : ''}>Any member</option></select></div>
-      </div>`;
+      </div>`)}`;
 
-    if (p.step === 4) {
+    {
       const sd = p.simD || Math.round((r.minDiscountP + r.maxDiscountP) / 2 / r.incrementP) * r.incrementP;
       const sm = Array.from({ length: r.members }, (_, i) => ({ id: 'm' + (i + 1) }));
       const st = ChitEngine.settle(r, p.simN || 1, sd, 'm2', sm);
-      body = `
+      B.fee = `
       <div class="label">Fee basis</div>
       ${CW.opts('feeBasis', ChitEngine.FEE_BASIS, { pool_pct: `e.g. 5% × ${rs(r.poolP)} = ${rs(r.poolP * 0.05)}`, discount_pct: 'e.g. 5% of a ₹25,000 discount = ₹1,250', fixed: 'The same amount whenever the fee applies', none: 'The organiser takes no fee' })}
       ${r.feeBasis === 'none' ? '' : r.feeBasis === 'fixed' ? `<div class="mt12">${C.field('Fixed fee', CW.moneyIn('feeFixedP'), { err: E('fee') })}</div>`
         : `<div class="mt12">${C.field('Fee percentage', `<div class="row gap8"><div class="prefix-input" style="width:120px"><input inputmode="decimal" value="${r.feeBps / 100}" onchange="CW.set('feeBps',Math.round(parseFloat(this.value||0)*100))"><span>%</span></div><span class="sm muted">${ChitEngine.FEE_BASIS[r.feeBasis]}</span></div>`, { err: E('fee') })}</div>`}
-      ${r.feeBasis === 'none' ? '' : `
-      <div class="label mt16">When is the fee charged?</div>
+      ${E('minDiscount') ? `<div class="info-card red mt12">${icon('alert', 16)}<div>${E('minDiscount')} <button class="link" onclick="CW.jump('auction')">Change in Auction rules</button></div></div>` : ''}
+      <div class="label mt16">Who receives the dividend?</div>
+      ${CW.opts('dividendTo', ChitEngine.DIV_TO)}
+      ${adv('advFee', 'Advanced fee & settlement rules', `${r.feeBasis === 'none' ? '' : `
+      <div class="label">When is the fee charged?</div>
       ${CW.opts('feeTiming', ChitEngine.FEE_TIMING)}
       ${r.feeTiming === 'selected' ? `<div class="chips wrap mt8">${Array.from({ length: r.rounds }, (_, i) => i + 1).map(n => `<button class="chip ${r.feeRounds.includes(n) ? 'on' : ''}" onclick="var f=CW.p().r.feeRounds;CW.set('feeRounds',f.includes(${n})?f.filter(x=>x!==${n}):f.concat(${n}).sort((a,b)=>a-b))">R${n}</button>`).join('')}</div>${E('feeRounds') ? `<div class="field-err">${icon('alert', 13)}${E('feeRounds')}</div>` : ''}` : ''}
       <div class="label mt16">Where does the fee come from?</div>
-      ${CW.opts('feeSource', ChitEngine.FEE_SOURCE)}
-      ${E('minDiscount') ? `<div class="info-card red mt12">${icon('alert', 16)}<div>${E('minDiscount')} <button class="link" onclick="CW.p().step=3;App.refresh()">Change on step 3</button></div></div>` : ''}`}
-      <div class="label mt16">Who receives the dividend?</div>
-      ${CW.opts('dividendTo', ChitEngine.DIV_TO)}
+      ${CW.opts('feeSource', ChitEngine.FEE_SOURCE)}`}
       <div class="label mt16">Uneven split (paise left over)</div>
       ${CW.opts('remainder', { first_members: 'Lowest ticket numbers get 1 paisa each', organiser: 'Record as a rounding line to the organiser' })}
-      <div class="group mt16">${CW.tog('creditDividend', 'Credit dividend against that round\'s contribution', 'Members pay contribution − dividend')}</div>
+      <div class="group mt16">${CW.tog('creditDividend', 'Credit dividend against that round\'s contribution', 'Members pay contribution − dividend')}</div>`)}
 
       <div class="card p mt16"><div class="row between mb8"><div class="card-title" style="margin:0">Financial preview</div><span class="sample-tag">Preview</span></div>
         <p class="xs muted mb12">How a round settles under these rules. Move the slider to try different winning discounts.</p>
@@ -305,11 +312,11 @@ App.reg('chitWizard', {
         ${ChitUI.settlement(r, st, { sim: true })}</div>`;
     }
 
-    if (p.step === 5) {
-      const id = CW.ensureDraft(), g = Chit.g(id), sch = ChitEngine.schedule(r);
-      const edits = Object.fromEntries(p.dateEdits || []);
-      const diff = g.members.length - r.members;
-      body = `
+    // Members & schedule need a saved draft, so they are built only once that section is opened.
+    const g = p.id && Chit.g(p.id), diff = g ? g.members.length - r.members : 0, sch = v.errors.startDate ? [] : ChitEngine.schedule(r);
+    if (p.open.members && g) {
+      const id = p.id, edits = Object.fromEntries(p.dateEdits || []);
+      B.members = `
       <div class="row between mb8"><div class="h3">Members <span class="muted">${g.members.length}/${r.members}</span></div><button class="link" onclick="ChitUI.inviteSheet('${id}')">${icon('plus', 14)} Add</button></div>
       ${diff ? `<div class="info-card warn mb12">${icon('alert', 16)}<div>${diff < 0 ? `${-diff} ticket${diff < -1 ? 's' : ''} still open.` : `${diff} more than the configured ${r.members}.`} Auctions open only when the accepted member count matches. <button class="link" onclick="CW.addSamples()">Fill with sample members</button></div></div>` : `<div class="info-card teal mb12">${icon('check', 16)}<div>Member count matches the scheme.</div></div>`}
       <div class="group">${g.members.map(m => `<div class="li">${C.avatar(m.name, null, 34)}<span class="li-main"><span>${m.ticket} · ${esc(m.name)}${m.userId === 'me' ? ' (you)' : ''}</span><span class="xs muted">${fmt.masked(m.phone)} · invite sent on publish</span></span>${m.userId === 'me' ? C.badge('Organiser', 'navy') : `<button class="iconbtn" onclick="CW.removeMember('${m.id}')">${icon('trash', 17)}</button>`}</div>`).join('')}</div>
@@ -318,31 +325,36 @@ App.reg('chitWizard', {
       <div class="group">${sch.map(x => { const at = edits[x.n] || x.auctionAt; return `<button class="li" onclick="CW.editDate(${x.n})"><span class="rnd">${x.n}</span><span class="li-main"><span>${fmt.day(at)}, ${fmt.time(at)}</span><span class="xs muted">Contribution due ${fmt.dm(new Date(new Date(at).getTime() + r.dueDays * 86400000))}${edits[x.n] ? ' · <b>moved</b>' : ''}</span></span>${icon('edit', 15, 'li-chev')}</button>`; }).join('')}</div>`;
     }
 
-    if (p.step === 6) {
-      const id = CW.ensureDraft(), g = Chit.g(id);
-      const errs = Object.values(v.errors);
-      if (g.members.length !== r.members) v.warnings.push(`${g.members.length} of ${r.members} members added. You can publish and invite the rest, but auctions open only when all ${r.members} have accepted.`);
-      const sm = Array.from({ length: r.members }, (_, i) => ({ id: 'm' + (i + 1) }));
-      const ex = ChitEngine.settle(r, 1, Math.round((r.minDiscountP + r.maxDiscountP) / 2 / r.incrementP) * r.incrementP, 'm2', sm);
-      const S2 = (t, n, html) => `<div class="card p mb12"><div class="row between mb8"><div class="card-title" style="margin:0">${t}</div><button class="link" onclick="CW.p().step=${n};App.refresh()">Edit</button></div>${html}</div>`;
-      body = `
-      ${errs.length ? `<div class="info-card red mb12">${icon('alert', 16)}<div><b>Fix before publishing:</b><br>${errs.join('<br>')}</div></div>` : ''}
-      ${v.warnings.map(w => `<div class="info-card warn mb12">${icon('alert', 16)}<div>${w}</div></div>`).join('')}
-      ${S2('Scheme', 1, C.rows([['Name', esc(r.name)], ['Visibility', r.visibility === 'invite' ? 'Invite only' : 'Discoverable with code'], ['Currency · timezone', 'INR · Asia/Kolkata']]))}
-      ${S2('Money', 2, C.rows([['Monthly gross pool', rs(r.poolP)], ['Members', r.members], ['Contribution per member', rs(r.poolP / r.members)], ['Duration', r.rounds + ' rounds'], ['Total scheduled contributions', rs(r.poolP * r.rounds)]]))}
-      ${S2('Auction', 3, C.rows([['First auction', fmt.dt(ChitEngine.schedule(r)[0].auctionAt)], ['Last auction', fmt.date(ChitEngine.schedule(r)[r.rounds - 1].auctionAt)], ['Discount range', `${rs(r.minDiscountP)} – ${rs(r.maxDiscountP)}`], ['Increment', rs(r.incrementP)], ['Tie-break', r.tieBreak === 'first_bid' ? 'First bid wins' : 'Draw lots'], ['No valid bids', ChitEngine.NO_BID[r.noBid]]]))}
-      ${S2('Fee & dividend', 4, C.rows([['Fee', ChitEngine.feeLabel(r, rs)], ['Fee timing', ChitEngine.FEE_TIMING[r.feeTiming]], ['Fee source', ChitEngine.FEE_SOURCE[r.feeSource]], ['Dividend to', ChitEngine.DIV_TO[r.dividendTo]], ['Payout formula', 'Monthly pool − winning discount' + (r.feeSource === 'separate' ? ' − fee' : '')]]))}
-      <div class="card p mb12"><div class="card-title">Example settlement (round 1, ${rs(ex.discountP)} discount)</div>${ChitUI.settlement(r, ex, { sim: true })}</div>
-      <div class="card p mb12"><div class="card-title">Defaults, refunds & disputes</div><p class="xs muted">Overdue members cannot bid until paid. Corrections are recorded as reversals or adjustments with a reason. Members can raise a dispute from any round; the organiser responds in the app. Refund and exit terms follow the signed agreement.</p></div>
-      <div class="info-card warn mb12">${icon('scale', 16)}<div><b>Legal review required.</b> Chit funds are regulated (Chit Funds Act, 1982 and state rules). Publishing in this prototype does not make a scheme compliant. Agreement version: <b>v1 (draft)</b>.</div></div>
-      <button class="opt ${p.confirm ? 'on' : ''} ${p.showErr && !p.confirm ? 'err-opt' : ''}" onclick="CW.p().confirm=!CW.p().confirm;App.refresh()"><span class="check">${p.confirm ? icon('check', 13) : ''}</span><span class="grow sm">I have reviewed these rules. Members will accept this exact version, and material terms cannot change after the chit starts.</span></button>`;
-    }
+    const SEC = CW.SECTION_FIELDS;
+    const sum = {
+      basics: r.name ? esc(r.name) : 'Name, description, visibility',
+      money: r.poolP > 0 && r.members ? `${rs(r.poolP)} · ${r.members} members · ${r.rounds} rounds${r.poolP % r.members ? '' : ' · ' + rs(r.poolP / r.members) + ' each'}` : 'Pool, members, rounds',
+      auction: `${sch.length ? fmt.date(sch[0].auctionAt) + ' · ' : ''}${rs(r.minDiscountP)} – ${rs(r.maxDiscountP)} discount`,
+      fee: `${ChitEngine.feeLabel(r, rs)} · dividend ${ChitEngine.DIV_TO[r.dividendTo]}`,
+      members: g ? `${g.members.length}/${r.members} added · ${r.rounds} round dates` : 'Add members, adjust round dates'
+    };
+    const sect = (key, n, title, html) => {
+      const open = p.open[key], bad = p.showErr && (SEC[key] || []).some(k => v.errors[k]);
+      return `<div class="card acc ${open ? 'open' : ''} ${bad ? 'bad' : ''}" id="sec-${key}">
+        <button class="acc-h" onclick="CW.toggle('${key}')"><span class="rnd">${n}</span><span class="grow"><b>${title}</b><span class="xs muted acc-sum">${bad ? 'Needs attention' : sum[key]}</span></span>${bad ? '<span class="acc-dot"></span>' : ''}<span class="acc-chev ${open ? 'up' : ''}">${icon('chevron', 18)}</span></button>
+        ${open ? `<div class="acc-b">${html || ''}</div>` : ''}</div>`;
+    };
+    const allErrs = Object.values(v.errors);
 
-    return `${C.appbar(p.id ? 'Edit chit draft' : 'Create chit group', { white: true, onBack: 'CW.prev()', right: `<button class="appbar-act" onclick="CW.save()">Save draft</button>` })}
-      ${C.progress(p.step, 6, titles[p.step - 1])}
-      <div class="content pad" style="padding-top:4px">${body}</div>
-      <div class="footer">${p.step > 1 ? `<button class="btn btn-outline" onclick="CW.prev()">Back</button>` : ''}
-        ${p.step < 6 ? `<button class="btn btn-primary grow" onclick="CW.next()">Continue</button>` : `<button class="btn btn-primary grow" ${Object.keys(v.errors).length ? 'disabled' : ''} onclick="CW.publish()">${icon('send', 18)}Publish chit</button>`}</div>`;
+    const body = `
+      ${p.showErr && allErrs.length ? `<div class="info-card red mb12">${icon('alert', 16)}<div><b>Fix before publishing:</b><br>${allErrs.join('<br>')}</div></div>` : ''}
+      ${sect('basics', 1, 'Basic details', B.basics)}
+      ${sect('money', 2, 'Money', B.money)}
+      ${sect('auction', 3, 'Auction rules', B.auction)}
+      ${sect('fee', 4, 'Fee & dividend', B.fee)}
+      ${sect('members', 5, 'Members & schedule', B.members)}
+      <div class="info-card warn mt16 mb12">${icon('scale', 16)}<div><b>Legal review required.</b> Chit funds are regulated (Chit Funds Act, 1982 and state rules). Publishing in this prototype does not make a scheme compliant. Agreement version: <b>v1 (draft)</b>.</div></div>
+      <p class="xs muted mb12">Overdue members cannot bid until paid. Corrections are recorded as reversals or adjustments with a reason. Members can raise a dispute from any round. Refund and exit terms follow the signed agreement.</p>
+      <button class="opt ${p.confirm ? 'on' : ''} ${p.showErr && !p.confirm ? 'err-opt' : ''}" onclick="CW.p().confirm=!CW.p().confirm;App.refresh()"><span class="check">${p.confirm ? icon('check', 13) : ''}</span><span class="grow sm">I have reviewed these rules. Members will accept this exact version, and material terms cannot change after the chit starts.</span></button>`;
+
+    return `${C.appbar(p.id ? 'Edit chit draft' : 'Create chit group', { white: true, onBack: 'CW.back()', right: `<button class="appbar-act" onclick="CW.save()">Save draft</button>` })}
+      <div class="content pad" style="padding-top:8px">${body}</div>
+      <div class="footer"><button class="btn btn-primary grow" onclick="CW.publish()">${icon('send', 18)}Publish chit</button></div>`;
   }
 });
 

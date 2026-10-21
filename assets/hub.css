@@ -197,3 +197,20 @@ body, .phone.ui-native { font-family: 'Inter', 'Noto Sans Tamil', system-ui, -ap
 .phone[lang="ta"] .tabs-line button { font-size: var(--fs-13); }
 .phone[lang="ta"] .seg button { font-size: var(--fs-12); gap: 3px; padding: 0 2px; }
 .auth-lang { padding-top: 20px; align-items: center; }
+
+/* Create-chit: single page with collapsible sections */
+.acc { margin-bottom: 12px; overflow: hidden; }
+.acc-h { width: 100%; display: flex; align-items: center; gap: 12px; padding: 14px; text-align: left; }
+.acc-h .grow { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.acc-h b { font-size: var(--fs-15); }
+.acc-sum { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.acc.open > .acc-h .rnd { background: var(--secondary-50); color: var(--secondary-d); }
+.acc-chev { display: grid; color: var(--muted-2); transform: rotate(90deg); transition: transform .2s; }
+.acc-chev.up { transform: rotate(-90deg); }
+.acc-b { padding: 4px 14px 16px; border-top: 1px solid var(--border-soft); padding-top: 14px; }
+.acc.bad { border-color: var(--error); }
+.acc-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--error); flex: none; }
+.adv-toggle { width: 100%; display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding: 10px 12px; border: 1px dashed var(--border); border-radius: var(--r); color: var(--link); font-weight: 600; font-size: var(--fs-13); }
+.adv-toggle span { display: grid; transform: rotate(90deg); transition: transform .2s; }
+.adv-toggle .up { transform: rotate(-90deg); }
+.adv-body { padding-top: 14px; }

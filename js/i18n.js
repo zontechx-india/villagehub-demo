@@ -127,7 +127,7 @@ const TA = {
   // ---------- Chit: wizard ----------
   'Create chit group': 'சீட்டுக் குழுவை உருவாக்கு', 'Edit chit draft': 'சீட்டு வரைவைத் திருத்து', 'Basic details': 'அடிப்படை விவரங்கள்', 'Money': 'தொகை', 'Auction rules': 'ஏல விதிகள்',
   'Fee & dividend': 'கட்டணம் & ஈவுத்தொகை', 'Members & schedule': 'உறுப்பினர்கள் & அட்டவணை', 'Review & publish': 'மதிப்பாய்வு & வெளியீடு',
-  'Set up a chit group in 6 steps. Everything is saved as a': '6 படிகளில் சீட்டுக் குழுவை அமைக்கவும். வெளியிடும் வரை அனைத்தும்', 'until you publish.': 'ஆகச் சேமிக்கப்படும்.',
+  'Fill in the sections below. Everything is saved as a': 'கீழுள்ள பகுதிகளை நிரப்பவும். வெளியிடும் வரை அனைத்தும்', 'until you publish.': 'ஆகச் சேமிக்கப்படும்.',
   'Chit name': 'சீட்டின் பெயர்', 'Description': 'விளக்கம்', 'Purpose, where the auction happens': 'நோக்கம், ஏலம் நடக்கும் இடம்', 'Who can find it': 'யார் கண்டறியலாம்',
   'Invite only': 'அழைப்பின் மூலம் மட்டும்', 'Discoverable with code': 'குறியீட்டுடன் கண்டறியலாம்', 'Members join only through your invitation': 'உங்கள் அழைப்பின் மூலம் மட்டுமே உறுப்பினர்கள் சேர முடியும்',
   'Anyone with the code can request to join; you approve': 'குறியீடு உள்ள எவரும் சேரக் கோரலாம்; நீங்கள் அங்கீகரிப்பீர்கள்', 'Currency': 'நாணயம்', 'Indian Rupee (₹ INR)': 'இந்திய ரூபாய் (₹ INR)',
@@ -163,7 +163,7 @@ const TA = {
   'Uneven split (paise left over)': 'சமமாகப் பிரியாவிட்டால் (மீதமுள்ள பைசா)', 'Lowest ticket numbers get 1 paisa each': 'குறைந்த டிக்கெட் எண்களுக்கு தலா 1 பைசா', 'Record as a rounding line to the organiser': 'அமைப்பாளருக்கு முழுமையாக்கல் வரியாகப் பதிவு',
   "Credit dividend against that round's contribution": 'அந்தச் சுற்றுப் பங்களிப்பில் ஈவுத்தொகையைக் கழி', 'Members pay contribution − dividend': 'உறுப்பினர்கள் பங்களிப்பு − ஈவுத்தொகை செலுத்துவார்கள்',
   'Financial preview': 'நிதி முன்னோட்டம்', 'How a round settles under these rules. Move the slider to try different winning discounts.': 'இந்த விதிகளின்படி ஒரு சுற்று எப்படித் தீர்வாகும். வெவ்வேறு தள்ளுபடிகளைக் காண ஸ்லைடரை நகர்த்தவும்.',
-  'Change on step 3': 'படி 3 இல் மாற்று', 'Add sample': 'மாதிரி சேர்', 'Fill with sample members': 'மாதிரி உறுப்பினர்களால் நிரப்பு', 'Member count matches the scheme.': 'உறுப்பினர் எண்ணிக்கை திட்டத்துடன் பொருந்துகிறது.',
+  'Change in Auction rules': 'ஏல விதிகளில் மாற்று', 'Add sample': 'மாதிரி சேர்', 'Fill with sample members': 'மாதிரி உறுப்பினர்களால் நிரப்பு', 'Member count matches the scheme.': 'உறுப்பினர் எண்ணிக்கை திட்டத்துடன் பொருந்துகிறது.',
   'invite sent on publish': 'வெளியிடும்போது அழைப்பு அனுப்பப்படும்', 'Auction schedule': 'ஏல அட்டவணை', 'Generated from the first auction date. Tap a round to move it for a holiday or village meeting.': 'முதல் ஏல தேதியிலிருந்து உருவானது. விடுமுறை அல்லது கிராமக் கூட்டத்திற்காக மாற்ற ஒரு சுற்றைத் தட்டவும்.',
   'moved': 'மாற்றப்பட்டது', 'New date': 'புதிய தேதி', 'Save date': 'தேதியைச் சேமி', 'Use this for holidays or village meeting days. Changes after publication need a reason and notify members.': 'விடுமுறை அல்லது கிராமக் கூட்ட நாட்களுக்குப் பயன்படுத்தவும். வெளியீட்டிற்குப் பின் மாற்றத்திற்குக் காரணம் தேவை; உறுப்பினர்களுக்குத் தெரிவிக்கப்படும்.',
   'Fix before publishing:': 'வெளியிடும் முன் சரிசெய்யவும்:', 'Scheme': 'திட்டம்', 'Name': 'பெயர்', 'Visibility': 'தெரிவுநிலை', 'Currency · timezone': 'நாணயம் · நேர மண்டலம்', 'INR · Asia/Kolkata': 'INR · Asia/Kolkata',

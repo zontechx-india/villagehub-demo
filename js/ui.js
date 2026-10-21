@@ -79,12 +79,12 @@ const Platform = {
 
 /* ---------- Bottom navigation and bottom sheet design — from ServiDEX ---------- */
 const CHROME_STYLES = {
-  nav: { key: 'villagehub_nav_style', label: 'Bottom navigation', opts: [['standard', 'Standard'], ['glass', 'Floating glass'], ['liquid', 'Liquid glass']], cls: { glass: 'nav-float', liquid: 'nav-float nav-liquid' } },
-  labels: { key: 'villagehub_nav_labels', label: 'Tab labels', opts: [['show', 'With labels'], ['hide', 'Icons only']], cls: { hide: 'nav-icons' } },
-  sheet: { key: 'villagehub_sheet_style', label: 'Bottom sheets', opts: [['standard', 'Standard'], ['glass', 'Floating glass'], ['liquid', 'Liquid glass']], cls: { glass: 'sheet-float', liquid: 'sheet-float sheet-liquid' } }
+  nav: { def: 'liquid', key: 'villagehub_nav_style', label: 'Bottom navigation', opts: [['standard', 'Standard'], ['glass', 'Floating glass'], ['liquid', 'Liquid glass']], cls: { glass: 'nav-float', liquid: 'nav-float nav-liquid' } },
+  labels: { def: 'hide', key: 'villagehub_nav_labels', label: 'Tab labels', opts: [['show', 'With labels'], ['hide', 'Icons only']], cls: { hide: 'nav-icons' } },
+  sheet: { def: 'liquid', key: 'villagehub_sheet_style', label: 'Bottom sheets', opts: [['standard', 'Standard'], ['glass', 'Floating glass'], ['liquid', 'Liquid glass']], cls: { glass: 'sheet-float', liquid: 'sheet-float sheet-liquid' } }
 };
 const ChromeStyle = {
-  get(k) { const d = CHROME_STYLES[k]; let v = null; try { v = localStorage.getItem(d.key); } catch (e) { /* ignore */ } return d.opts.some(([o]) => o === v) ? v : d.opts[0][0]; },
+  get(k) { const d = CHROME_STYLES[k]; let v = null; try { v = localStorage.getItem(d.key); } catch (e) { /* ignore */ } return d.opts.some(([o]) => o === v) ? v : (d.def || d.opts[0][0]); },
   set(k, v) { try { localStorage.setItem(CHROME_STYLES[k].key, v); } catch (e) { /* ignore */ } this.apply(); this.panel(); },
   apply() {
     const el = document.getElementById('phone'); if (!el) return;

@@ -42,7 +42,7 @@
         <h4>Guided flows</h4>
         <ol class="flows">
           <li><div><b>Sign up as a new user</b><span>Mobile number → OTP → your name → empty home → Create a service.</span></div><button onclick="Panel.newUser()">Start</button></li>
-          <li><div><b>Create a chit group</b><span>Six-step setup with a live settlement preview. Saved as a draft as you go.</span></div><button onclick="Panel.jump('chitWizard')">Start</button></li>
+          <li><div><b>Create a chit group</b><span>One-page setup with collapsible sections and a live settlement preview. Saved as a draft as you go.</span></div><button onclick="Panel.jump('chitWizard')">Start</button></li>
           <li><div><b>Run a live auction</b><span>Two-minute auction with other bidders → approve the result → send the payout.</span></div><button onclick="Panel.openAuction()">Start</button></li>
           <li><div><b>Collect payments (organiser)</b><span>Verify an agent's cash entry, record cash for an overdue member, reverse with a reason.</span></div><button onclick="Panel.jump('chitHome',{id:'s_chit1',tab:'payments'})">Start</button></li>
           <li><div><b>Pay your dues (member)</b><span>Your ledger in another chit. Pay round 3 by UPI and watch it confirm.</span></div><button onclick="Panel.jump('chitMember',{id:'s_chit2',mid:'m7'})">Start</button></li>

@@ -27,9 +27,9 @@ const THEME_FIELDS = [
 
 // Must match the :root base colours in assets/styles.css.
 const THEME_DEFAULT = {
-  primary: '#101828', secondary: '#0D9488', accent: '#FF9F43', bg: '#F8FAFC', card: '#FFFFFF', text: '#111827', muted: '#64748B',
-  border: '#E2E8F0', success: '#16A34A', error: '#DC2626', info: '#2563EB', star: '#F59E0B', onDark: '#FFFFFF', onSecondary: '#FFFFFF',
-  catMode: 'colourful', style: 'standard', tints: 'brand', dark: 'off'
+  primary: '#17212B', secondary: '#3390EC', accent: '#F7A23B', bg: '#EFEFF4', card: '#FFFFFF', text: '#000000', muted: '#707579',
+  border: '#DADCE0', success: '#4FAE4E', error: '#E53935', info: '#3390EC', star: '#F7B500', onDark: '#FFFFFF', onSecondary: '#FFFFFF',
+  catMode: 'colourful', style: 'standard', tints: 'neutral', dark: 'on'
 };
 
 // Dark surfaces applied on top of any light theme when dark mode is On (or System and the device is dark).

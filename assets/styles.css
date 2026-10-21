@@ -5,18 +5,18 @@
  * so changing a base colour updates the whole app. The Theme panel in the prototype (js/theme.js)
  * overrides these live; use its "Copy CSS" button to paste a chosen combination back here. */
 :root {
-  --primary: #101828;   /* Deep navy: headers, dark buttons, provider gradient */
-  --secondary: #0D9488; /* Vibrant teal: main actions, active tab, links, highlights */
-  --accent: #FF9F43;    /* Warm orange: badges, new-request and payment-due highlights */
-  --bg: #F8FAFC;        /* Screen background */
+  --primary: #17212B;   /* Deep navy: headers, dark buttons, provider gradient */
+  --secondary: #3390EC; /* Vibrant teal: main actions, active tab, links, highlights */
+  --accent: #F7A23B;    /* Warm orange: badges, new-request and payment-due highlights */
+  --bg: #EFEFF4;        /* Screen background */
   --card: #FFFFFF;      /* Cards, sheets, inputs */
-  --text: #111827;      /* Primary text */
-  --muted: #64748B;     /* Secondary text */
-  --border: #E2E8F0;    /* Borders and dividers */
-  --success: #16A34A;
-  --error: #DC2626;
-  --info: #2563EB;      /* Info banners, verified badge, customer banner gradient end */
-  --star: #F59E0B;      /* Rating stars */
+  --text: #000000;      /* Primary text */
+  --muted: #707579;     /* Secondary text */
+  --border: #DADCE0;    /* Borders and dividers */
+  --success: #4FAE4E;
+  --error: #E53935;
+  --info: #3390EC;      /* Info banners, verified badge, customer banner gradient end */
+  --star: #F7B500;      /* Rating stars */
   --on-dark: #FFFFFF;   /* Text and icons on primary and gradient backgrounds */
   --on-secondary: #FFFFFF; /* Text and icons on secondary (main buttons, selected day) */
 }
