@@ -105,6 +105,10 @@ const Theme = {
     el.classList.toggle('theme-dark', this.isDark());
     el.classList.toggle('ui-native', this.current.style === 'native');
     el.classList.toggle('tint-neutral', this.current.tints === 'neutral');
+    // Phone status bar / browser chrome follows the screen background (light or dark).
+    let m = document.querySelector('meta[name="theme-color"]');
+    if (!m) { m = document.createElement('meta'); m.name = 'theme-color'; document.head.appendChild(m); }
+    m.content = eff.bg;
   },
   set(k, v) {
     this.current[k] = v; this.save(); this.apply();
