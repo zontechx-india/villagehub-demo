@@ -3,6 +3,7 @@
 
 const ChitUI = {
   roundBadge(r) { const m = ROUND_ST[r.status]; return C.badge(m.label, m.tone); },
+  howLabel: how => ({ order: 'By fixed order', lots: 'By lots', last: 'Last member · no auction' })[how] || '',
   payoutBadge(p) { return p ? C.badge(PAYOUT_ST[p.status].label, PAYOUT_ST[p.status].tone) : ''; },
   payBadge(p) { return C.badge(PAY_ST[p.status].label, PAY_ST[p.status].tone); },
   oblBadge(o) { const [l, t] = OBL_ST[o.status]; return C.badge(l, t); },
@@ -16,6 +17,22 @@ const ChitUI = {
   // Settlement breakdown with the formula next to every figure, then the reconciliation checks (spec §5.2, §19).
   settlement(r, st, o = {}) {
     const L = (label, formula, amt, cls) => `<div class="calc-row ${cls || ''}"><span><span class="cl">${label}</span>${formula ? `<small>${formula}</small>` : ''}</span><b>${amt}</b></div>`;
+    const each = rs(r.contributionP || r.poolP / r.members);
+    // No bidding (fixed chit, or the last ticket of an auction chit): pool − commission, nothing else.
+    if (st.kind && st.kind !== 'auction') {
+      const fee = st.kind === 'fixed' ? 'Commission' : 'Company fee';
+      const rows = [
+        L('Chit amount', `${r.members} chits × ${each}`, rs(st.poolP)),
+        L(fee, st.feeApplied ? ChitEngine.feeLabel(r, rs) : `Not charged in round ${st.round}`, '− ' + rs(st.feeP)),
+        L('Member receives', `${rs(st.poolP)} − ${rs(st.feeP)}`, rs(st.payoutNetP), 'hl'),
+        L('Every chit pays this month', st.kind === 'fixed' ? 'Same amount every month' : 'Last round · no auction, no discount', each)
+      ].join('');
+      const checks = st.checks.map(c => `<div class="chk ${c.ok ? 'ok' : 'bad'}">${icon(c.ok ? 'check' : 'x', 14)}<span><b>${c.label}</b><small>${rs(c.l)} = ${c.rr.map(rs).join(' + ')}</small></span></div>`).join('');
+      return `<div class="calc">${rows}</div>
+        ${st.errors.length ? `<div class="info-card red mt12">${icon('alert', 16)}<div>${st.errors.map(esc).join('<br>')}</div></div>` : ''}
+        <div class="chks mt12">${checks}</div>
+        <p class="tiny muted mt8">Calculated in paise by ${st.version}${o.sim ? ' · simulation only' : ''}. The production server is the source of truth.</p>`;
+    }
     const rec = st.recipients;
     const rows = [
       L('Monthly gross pool', `${r.members} members × ${rs(r.contributionP || r.poolP / r.members)}`, rs(st.poolP)),
@@ -35,10 +52,27 @@ const ChitUI = {
       <p class="tiny muted mt8">Calculated in paise by ${st.version}${o.sim ? ' · simulation only' : ''}. The production server is the source of truth.</p>`;
   },
 
+  multiKv(r) {
+    const n = r.maxTickets || 1;
+    return C.kv('users', 'Additional chits', n > 1 ? `One person can take up to ${n} chits · each chit pays separately` : 'One chit per person');
+  },
+
   rulesKv(r) {
-    return `${C.kv('coins', 'Monthly gross pool', `${rs(r.poolP)} · ${r.members} members × ${rs(r.poolP / r.members)}`)}
+    if (r.chitType === 'fixed') {
+      return `${C.kv('file', 'Chit type', 'Fixed monthly chit · no auction')}
+        ${C.kv('coins', 'Chit amount', `${rs(r.poolP)} every month · ${r.members} chits × ${rs(r.poolP / r.members)}`)}
+        ${C.kv('calendar', 'Duration', `${r.rounds} months · first money day ${fmt.date(r.startDate)} at ${r.auctionTime} IST`)}
+        ${C.kv('users', 'Who gets the money', ChitEngine.TURN[r.turnOrder] + ' · each chit gets it once')}
+        ${C.kv('receipt', 'Commission', `${ChitEngine.feeLabel(r, rs)} · ${ChitEngine.FEE_TIMING[r.feeTiming]} · taken from the amount paid out`)}
+        ${ChitUI.multiKv(r)}
+        ${C.kv('wallet', 'Payment', `Pay within ${r.dueDays} days of each money day`)}`;
+    }
+    return `${C.kv('file', 'Chit type', 'Auction chit')}
+      ${C.kv('coins', 'Monthly gross pool', `${rs(r.poolP)} · ${r.members} members × ${rs(r.poolP / r.members)}`)}
       ${C.kv('calendar', 'Duration', `${r.rounds} monthly rounds · first auction ${fmt.date(r.startDate)} at ${r.auctionTime} IST`)}
-      ${C.kv('gavel', 'Bidding', `Discount bids ${rs(r.minDiscountP)}–${rs(r.maxDiscountP)} · step ${rs(r.incrementP)} · highest wins`)}
+      ${C.kv('gavel', 'Bidding', `Starting bid ${rs(r.minDiscountP)} · maximum ${rs(r.maxDiscountP)} · step ${rs(r.incrementP)} · highest wins`)}
+      ${C.kv('clock', 'Not bidding', 'Members who never bid wait; the last one gets the full amount with no discount')}
+      ${ChitUI.multiKv(r)}
       ${C.kv('scale', 'Tie-break', ChitEngine.TIE_BREAK[r.tieBreak])}
       ${C.kv('receipt', 'Company fee', `${ChitEngine.feeLabel(r, rs)} · ${ChitEngine.FEE_TIMING[r.feeTiming]}${r.feeTiming === 'selected' ? ' (' + r.feeRounds.join(', ') + ')' : ''} · ${ChitEngine.FEE_SOURCE[r.feeSource].toLowerCase()}`)}
       ${C.kv('users', 'Dividend', `${ChitEngine.DIV_TO[r.dividendTo]} · equal split · ${r.creditDividend ? 'credited against that round\'s contribution' : 'paid out separately'}`)}
@@ -80,7 +114,8 @@ const ChitUI = {
   },
 
   inviteSheet(svcId) {
-    const s = svcById(svcId), g = Chit.g(svcId);
+    const s = svcById(svcId), g = Chit.g(svcId), max = g.rules.maxTickets || 1;
+    ChitUI._invN = 1;
     UI.sheet(`<div class="sheet-title">Invite members</div><p class="xs muted mb12">${g.members.filter(m => m.status !== 'EXITED').length} of ${g.rules.members} tickets filled.</p>
       <div class="invite-code"><div><div class="xs muted">Invite code</div><div class="code">${s.code}</div></div><button class="btn btn-outline btn-sm" onclick="UI.copy('${s.code}','Invite code copied')">${icon('copy', 15)}Copy</button></div>
       <button class="btn btn-outline btn-block mt8" onclick="UI.toast('Share sheet opened with the invite link (simulated)','ok')">${icon('share', 17)}Share invite link</button>
@@ -88,14 +123,17 @@ const ChitUI = {
       <div class="label">Or add by phone number</div>
       ${C.field('Name', '<input id="invN" class="input" placeholder="Member name">')}
       ${C.field('Mobile number', '<div class="prefix-input"><span>+91</span><input id="invP" inputmode="numeric" maxlength="10" placeholder="10-digit number"></div>')}
+      ${max > 1 ? `<div class="label">How many chits for this person?</div>
+        <div class="count-pick" id="invC">${Array.from({ length: max }, (_, i) => `<button class="${i ? '' : 'on'}" onclick="ChitUI._invN=${i + 1};document.querySelectorAll('#invC button').forEach((b,k)=>b.classList.toggle('on',k===${i}))"><b>${i + 1}</b><span>${i ? 'chits' : 'chit'}</span></button>`).join('')}</div>
+        <p class="xs muted mb12">Each chit is paid separately and gets its own month. To add a chit for someone already in the group, use the same mobile number.</p>` : ''}
       <div id="invErr"></div>
       <button class="btn btn-primary btn-block" onclick="ChitUI._invite('${svcId}')">Send invitation</button>`);
   },
   _invite(svcId) {
-    const n = document.getElementById('invN').value.trim(), p = document.getElementById('invP').value.replace(/\D/g, '');
-    const err = n.length < 2 ? 'Enter the member name' : !/^[6-9]\d{9}$/.test(p) ? 'Enter a valid 10-digit mobile number' : Chit.invite(svcId, n, p);
+    const n = document.getElementById('invN').value.trim(), p = document.getElementById('invP').value.replace(/\D/g, ''), k = ChitUI._invN || 1;
+    const err = n.length < 2 ? 'Enter the member name' : !/^[6-9]\d{9}$/.test(p) ? 'Enter a valid 10-digit mobile number' : Chit.invite(svcId, n, p, k);
     if (err) { document.getElementById('invErr').innerHTML = `<div class="field-err mb12">${icon('alert', 13)}${err}</div>`; return; }
-    UI.close(true); UI.toast(`Invitation sent to ${n}`, 'ok');
+    UI.close(true); UI.toast(k > 1 ? `${k} chits added for ${n}` : `Invitation sent to ${n}`, 'ok');
   },
 
   rescheduleSheet(svcId, n) {
@@ -145,7 +183,44 @@ const CW = {
   },
   sync() { const r = CW.p().r; r.contributionP = r.members ? r.poolP / r.members : 0; },
   // Field → section map, used to flag and open the sections that block publishing.
-  SECTION_FIELDS: { basics: ['name'], money: ['pool', 'members', 'rounds'], auction: ['startDate', 'minDiscount', 'maxDiscount', 'increment'], fee: ['fee', 'feeRounds', 'minDiscount'] },
+  SECTION_FIELDS: { basics: ['name'], money: ['pool', 'members', 'rounds', 'maxTickets'], auction: ['startDate', 'minDiscount', 'maxDiscount', 'increment'], fee: ['fee', 'feeRounds', 'minDiscount'] },
+  // First screen: pick the chit type. Fixed is listed first because it is the simplest.
+  pick(t) { CW.p().type = t; App.refresh(); },
+  // Back from an unsaved new chit returns to the type picker; otherwise leave the wizard.
+  back() {
+    const p = CW.p();
+    if (!p.id && p.type) { p.type = null; p.r = null; p.showErr = false; return App.refresh(); }
+    App.back();
+  },
+  setType(t) {
+    const p = CW.p(); p.r.chitType = t;
+    if (t === 'fixed') { p.sameRounds = true; p.r.rounds = p.r.members; if (p.r.feeBasis === 'discount_pct') p.r.feeBasis = 'pool_pct'; }
+    CW.sync(); App.refresh();
+  },
+  // Photo for the chit (logo or group photo), shrunk to a small JPEG so it fits in local storage.
+  photo(input) {
+    const f = input.files && input.files[0]; if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const s = 160, c = document.createElement('canvas'), k = Math.min(img.width, img.height);
+        c.width = c.height = s;
+        c.getContext('2d').drawImage(img, (img.width - k) / 2, (img.height - k) / 2, k, k, 0, 0, s, s);
+        CW.set('photo', c.toDataURL('image/jpeg', 0.8));
+      };
+      img.src = rd.result;
+    };
+    rd.readAsDataURL(f);
+  },
+  company(v) { CW.p().r.company = v; S().user.company = v; Store.save(); },
+  // Fixed order: move a ticket up or down the month list.
+  move(i, d) {
+    const g = Chit.g(CW.p().id), o = Chit.order(g), j = i + d;
+    if (j < 0 || j >= o.length) return;
+    [o[i], o[j]] = [o[j], o[i]]; g.order = o;
+    Store.save(); App.refresh();
+  },
   toggle(k) {
     const p = CW.p(); p.open[k] = !p.open[k];
     if (k === 'members' && p.open[k]) CW.ensureDraft();
@@ -163,7 +238,7 @@ const CW = {
     const id = Act.newService('chit', p.r.name || 'Untitled chit', { status: 'draft' });
     const g = ChitData.group(p.r, svcById(id).code);
     ChitData.addMember(g, S().user.name, S().user.phone, { userId: 'me' });
-    S().mod.chit[id] = g;
+    (S().mod.chit = S().mod.chit || {})[id] = g; // a new user has no chit records yet
     Act.audit(id, 'Chit draft created', 'service', {});
     p.id = id;
     return id;
@@ -192,6 +267,7 @@ const CW = {
     const g = Chit.g(CW.p().id); const i = g.members.findIndex(m => m.id === mid);
     if (i > 0) g.members.splice(i, 1);
     g.members.forEach((m, k) => { m.id = 'm' + (k + 1); m.ticket = 'M' + String(k + 1).padStart(3, '0'); });
+    g.order = null; // ids were renumbered, so the month order goes back to ticket order
     Store.save(); App.refresh();
   },
   editDate(n) {
@@ -228,52 +304,77 @@ App.reg('chitWizard', {
   render(p) {
     if (!p.r) {
       const g = p.id && Chit.g(p.id);
-      p.r = g ? JSON.parse(JSON.stringify(g.rules)) : ChitData.defaultRules();
-      p.open = { basics: true, money: true, auction: true, fee: false, members: false, advAuction: false, advFee: false };
-      p.sameRounds = p.r.members === p.r.rounds;
+      // New chit: ask the type first, in big simple cards.
+      if (!g && !p.type) return `${C.appbar('Create chit group', { white: true })}
+        <div class="content pad" style="padding-top:12px">
+          <h2 class="h2">What type of chit?</h2><p class="sm muted mt4 mb16">Pick one. You will see every rule before you publish.</p>
+          <button class="type-card" onclick="CW.pick('fixed')"><span class="tc-ic">${icon('coins', 30)}</span><span class="grow"><span class="row gap8 wrap"><b>Fixed monthly chit</b>${C.badge('Easiest', 'green')}</span><span class="tc-ta" data-raw>மாதச் சீட்டு</span><span class="tc-d">No bidding. Everyone pays the same amount every month. Each month one member gets the money, in a fixed order or by lots.</span></span></button>
+          <button class="type-card" onclick="CW.pick('auction')"><span class="tc-ic">${icon('gavel', 30)}</span><span class="grow"><b>Auction chit</b><span class="tc-ta" data-raw>ஏலச் சீட்டு</span><span class="tc-d">Members bid each month. The highest bid takes the money early, and the bid amount is shared with everyone.</span></span></button>
+          <div class="type-card soon"><span class="tc-ic">${icon('sparkles', 30)}</span><span class="grow"><b>Gold chit</b><span class="tc-ta" data-raw>தங்கச் சீட்டு</span><span class="tc-d">Save every month and get gold at the end.</span></span>${C.badge('Soon', 'grey')}</div>
+        </div>`;
+      p.r = g ? JSON.parse(JSON.stringify(g.rules)) : Object.assign(ChitData.defaultRules(), { chitType: p.type });
+      if (!p.r.chitType) Object.assign(p.r, { chitType: 'auction', company: '', photo: null, maxTickets: 1, turnOrder: 'order' }); // drafts saved before chit types
+      p.open = { basics: true, money: true, auction: true, fee: false, members: false, advAuction: false, advFee: false, advPool: false };
+      p.sameRounds = p.r.members === p.r.rounds || p.r.chitType === 'fixed';
+      if (p.r.chitType === 'fixed') p.r.rounds = p.r.members;
       p.dateEdits = (g && g.dateEdits) || [];
     }
-    const r = p.r, v = ChitEngine.validate(r, rs), E = k => p.showErr ? v.errors[k] : '';
+    const r = p.r, fixed = r.chitType === 'fixed', v = ChitEngine.validate(r, rs), E = k => p.showErr ? v.errors[k] : '';
     const B = {};
     const adv = (key, label, html) => `<button class="adv-toggle" onclick="CW.p().open.${key}=!CW.p().open.${key};App.refresh()">${label}<span class="${p.open[key] ? 'up' : ''}">${icon('chevron', 16)}</span></button>${p.open[key] ? `<div class="adv-body">${html}</div>` : ''}`;
 
     B.basics = `
-      ${C.field('Chit name', `<input class="input ${E('name') ? 'err' : ''}" maxlength="60" value="${esc(r.name)}" placeholder="e.g. Thirumalai Nagar Chit · ₹1 Lakh" onchange="CW.set('name',this.value.trim())">`, { req: true, err: E('name') })}
-      ${C.field('Description', `<textarea class="textarea" maxlength="200" placeholder="Purpose, where the auction happens" onchange="CW.set('desc',this.value)">${esc(r.desc)}</textarea>`, { opt: true })}
+      <div class="type-now"><span class="tc-ic sm">${icon(fixed ? 'coins' : 'gavel', 20)}</span><span class="grow"><span class="xs muted">Chit type</span><b>${ChitEngine.TYPES[r.chitType]}</b></span>
+        <button class="btn btn-outline btn-sm type-switch" onclick="CW.setType('${fixed ? 'auction' : 'fixed'}')">${fixed ? 'Change to auction' : 'Change to fixed'}</button></div>
+      ${C.field('Company name', `<input class="input" maxlength="60" value="${esc(r.company || '')}" placeholder="e.g. Sri Murugan Chits" onchange="CW.company(this.value.trim())">`, { opt: true, hint: 'Shown on the chit and on receipts. Saved for your next chit.' })}
+      ${C.field('Chit name', `<input class="input ${E('name') ? 'err' : ''}" maxlength="60" value="${esc(r.name)}" placeholder="${fixed ? 'e.g. Murugan Fixed Chit · ₹1 Lakh' : 'e.g. Thirumalai Nagar Chit · ₹1 Lakh'}" onchange="CW.set('name',this.value.trim())">`, { req: true, err: E('name') })}
+      <div class="label">Photo <span class="opt">Optional</span></div>
+      <label class="photo-pick">${r.photo ? `<img src="${r.photo}" alt="">` : `<span class="pp-empty">${icon('camera', 26)}</span>`}<span class="grow"><b>${r.photo ? 'Change photo' : 'Add a photo'}</b><span class="xs muted">Company logo or group photo</span></span><input type="file" accept="image/*" onchange="CW.photo(this)" hidden></label>
+      ${r.photo ? `<button class="link mb12" onclick="CW.set('photo',null)">Remove photo</button>` : ''}
+      ${C.field('Description', `<textarea class="textarea" maxlength="200" placeholder="${fixed ? 'Purpose, where members meet' : 'Purpose, where the auction happens'}" onchange="CW.set('desc',this.value)">${esc(r.desc)}</textarea>`, { opt: true })}
       <div class="label">Who can find it</div>
       ${CW.opts('visibility', { invite: 'Invite only', discoverable: 'Discoverable with code' }, { invite: 'Members join only through your invitation', discoverable: 'Anyone with the code can request to join; you approve' })}
       <p class="xs muted mt12">₹ INR · Asia/Kolkata (IST) · Organiser: ${esc(S().user.name)} (you)</p>`;
 
     {
-      const total = r.poolP * r.rounds;
+      const total = r.poolP * r.rounds, each = r.poolP % r.members ? 0 : r.poolP / r.members;
       B.money = `
-      <div class="label">What does the chit amount mean?</div>
-      ${CW.opts('poolMeaning', { monthly: 'Monthly gross pool', total: 'Total scheme value' }, { monthly: 'Collected in one round if every member pays', total: 'Across all rounds — the app divides it by rounds' })}
-      <div class="mt16">${C.field(r.poolMeaning === 'total' ? 'Total scheme value' : 'Monthly gross pool', `<div class="chips wrap mb8">${[100000, 200000, 300000].map(x => `<button class="chip ${(r.poolMeaning === 'total' ? total : r.poolP) === RP(x) ? 'on' : ''}" onclick="CW.pool(${x})">₹${x / 100000} lakh</button>`).join('')}</div>
-        <div class="prefix-input ${E('pool') ? 'err' : ''}"><span>₹</span><input inputmode="numeric" value="${(r.poolMeaning === 'total' ? total : r.poolP) / 100}" onchange="CW.pool(this.value)"></div>`, { req: true, err: E('pool'), hint: r.poolMeaning === 'total' ? `= ${rs(r.poolP)} monthly gross pool over ${r.rounds} rounds` : '' })}</div>
+      ${C.field('Chit amount (collected every month)', `<div class="chips wrap mb8">${[100000, 200000, 300000].map(x => `<button class="chip big ${(r.poolMeaning === 'total' ? total : r.poolP) === RP(x) ? 'on' : ''}" onclick="CW.pool(${x})">₹${x / 100000} lakh</button>`).join('')}</div>
+        <div class="prefix-input ${E('pool') ? 'err' : ''}"><span>₹</span><input inputmode="numeric" value="${(r.poolMeaning === 'total' ? total : r.poolP) / 100}" onchange="CW.pool(this.value)"></div>`, { req: true, err: E('pool'), hint: r.poolMeaning === 'total' ? `= ${rs(r.poolP)} monthly gross pool over ${r.rounds} rounds` : '' })}
       <div class="row gap12">
-        <div class="grow">${C.field('Members (tickets)', `<div class="stepper"><button onclick="CW.step('members',-1)">−</button><span>${r.members}</span><button onclick="CW.step('members',1)">+</button></div>`, { err: E('members') && ' ' })}</div>
-        <div class="grow">${C.field('Rounds (months)', `<div class="stepper"><button onclick="CW.p().sameRounds=false;CW.step('rounds',-1)">−</button><span>${r.rounds}</span><button onclick="CW.p().sameRounds=false;CW.step('rounds',1)">+</button></div>`)}</div>
+        <div class="grow">${C.field('Number of chits', `<div class="stepper"><button onclick="CW.step('members',-1)">−</button><span>${r.members}</span><button onclick="CW.step('members',1)">+</button></div>`, { err: E('members') && ' ' })}</div>
+        <div class="grow">${fixed ? C.field('Months', `<div class="stepper locked"><span>${r.rounds}</span></div>`) : C.field('Rounds (months)', `<div class="stepper"><button onclick="CW.p().sameRounds=false;CW.step('rounds',-1)">−</button><span>${r.rounds}</span><button onclick="CW.p().sameRounds=false;CW.step('rounds',1)">+</button></div>`)}</div>
       </div>
-      ${E('members') ? `<div class="field-err mb12">${icon('alert', 13)}${E('members')}</div>` : ''}
-      <label class="row gap8 xs mb16"><input type="checkbox" ${p.sameRounds ? 'checked' : ''} onchange="CW.p().sameRounds=this.checked;if(this.checked)CW.set('rounds',CW.p().r.members);else App.refresh()"> One winner per round (rounds = members)</label>
-      <div class="card p mb16"><div class="card-title">Contribution</div>
-        ${C.rows([['Contribution per member per round', r.poolP % r.members ? '<span class="red">Not a whole amount</span>' : rs(r.poolP / r.members)], ['Scheduled total per member', r.poolP % r.members ? '—' : rs(r.poolP / r.members * r.rounds)]], ['Scheduled total for the group', rs(r.poolP * r.rounds)])}</div>
-      ${C.field('Contribution due', `<div class="row gap8"><input class="input" style="width:90px" inputmode="numeric" value="${r.dueDays}" onchange="CW.num('dueDays',this.value,1)"><span class="sm muted">days after each auction</span></div>`)}
-      <div class="group">${CW.tog('winnerContinues', 'Winner keeps paying future instalments', 'Recommended for the sample model')}${CW.tog('winOnce', 'Each member can win only once', 'Default unless your approved rules say otherwise')}</div>
+      ${E('members') || E('rounds') ? `<div class="field-err mb12">${icon('alert', 13)}${E('members') || E('rounds')}</div>` : ''}
+      ${fixed ? '<p class="xs muted mb16">Months = number of chits, so every chit gets the money once.</p>' : `<label class="row gap8 xs mb16"><input type="checkbox" ${p.sameRounds ? 'checked' : ''} onchange="CW.p().sameRounds=this.checked;if(this.checked)CW.set('rounds',CW.p().r.members);else App.refresh()"> One winner per round (rounds = members)</label>`}
+      <div class="pay-big"><span>Each chit pays every month</span><b>${each ? rs(each) : '—'}</b><small>${each ? `${rs(each)} × ${r.rounds} months = ${rs(each * r.rounds)} in total` : 'Choose an amount that divides evenly by the number of chits'}</small></div>
+      <div class="label mt16">Can one person take more than one chit?</div>
+      <div class="count-pick">${[[1, 'No', '1 chit each'], [2, 'Up to 2', 'chits'], [3, 'Up to 3', 'chits']].map(([k, a, b]) => `<button class="${(r.maxTickets || 1) === k ? 'on' : ''}" onclick="CW.set('maxTickets',${k})"><b>${a}</b><span>${b}</span></button>`).join('')}</div>
+      <p class="xs muted mb16">${(r.maxTickets || 1) > 1 ? 'Additional chits: each chit is paid separately and gets its own month.' : 'Every person holds exactly one chit.'}</p>
+      ${C.field('Pay within', `<div class="row gap8"><input class="input" style="width:90px" inputmode="numeric" value="${r.dueDays}" onchange="CW.num('dueDays',this.value,1)"><span class="sm muted">${fixed ? 'days after each money day' : 'days after each auction'}</span></div>`)}
+      ${fixed ? '' : `<div class="group">${CW.tog('winnerContinues', 'Winner keeps paying future instalments', 'Recommended for the sample model')}${CW.tog('winOnce', 'Each member can win only once', 'Default unless your approved rules say otherwise')}</div>`}
+      ${adv('advPool', 'Enter the total value instead', `${CW.opts('poolMeaning', { monthly: 'Monthly gross pool', total: 'Total scheme value' }, { monthly: 'Collected in one round if every member pays', total: 'Across all rounds — the app divides it by rounds' })}`)}
       ${v.warnings.map(w => `<div class="info-card warn mt12">${icon('alert', 16)}<div>${w}</div></div>`).join('')}`;
     }
 
-    B.auction = `
+    const when = `<div>${C.field(fixed ? 'First money day' : 'First auction date', `<input type="date" class="input ${E('startDate') ? 'err' : ''}" value="${r.startDate}" onchange="CW.set('startDate',this.value)">`, { err: E('startDate') })}
+        ${C.field('Time (IST)', `<input type="time" class="input" value="${r.auctionTime}" onchange="CW.set('auctionTime',this.value)">`)}</div>`;
+    B.auction = fixed ? `
+      ${when}
+      <p class="xs muted mb16">Same date every month. You can move one month for a festival later.</p>
+      <div class="label">Who gets the money each month?</div>
+      ${CW.opts('turnOrder', { order: 'Fixed order', lots: 'Draw lots each month' }, { order: 'You set the order once (month 1, month 2 …). Everyone knows their month from the start.', lots: 'Every month the app draws one chit from those who have not got the money yet. The draw is saved in history.' })}
+      <div class="info-card mt12">${icon('info', 16)}<div>No bidding and no discount. The member gets the chit amount minus the commission.</div></div>`
+      : `
       <div class="label">How is the auction held?</div>
       ${CW.opts('auctionType', { live: 'Live in the app', offline: 'In person, organiser records it', hybrid: 'Hybrid' }, { live: 'Members bid from their phones; the server picks the winner', offline: 'Bids taken at the meeting and entered by the organiser', hybrid: 'In-person bids entered alongside app bids' })}
-      <div class="row gap12 mt16"><div class="grow">${C.field('First auction date', `<input type="date" class="input ${E('startDate') ? 'err' : ''}" value="${r.startDate}" onchange="CW.set('startDate',this.value)">`, { err: E('startDate') })}</div>
-        <div style="width:118px">${C.field('Time (IST)', `<input type="time" class="input" value="${r.auctionTime}" onchange="CW.set('auctionTime',this.value)">`)}</div></div>
+      <div class="mt16">${when}</div>
       ${C.field('Bidding window', `<div class="row gap8"><input class="input" style="width:90px" inputmode="numeric" value="${r.auctionMinutes}" onchange="CW.num('auctionMinutes',this.value,5)"><span class="sm muted">minutes</span></div>`)}
       <div class="info-card mb16">${icon('info', 16)}<div>Members bid the <b>discount they agree to give up</b>. The highest valid discount wins.</div></div>
-      <div class="row gap12"><div class="grow">${C.field('Minimum discount', CW.moneyIn('minDiscountP'), { err: E('minDiscount') && ' ' })}</div><div class="grow">${C.field('Maximum discount', CW.moneyIn('maxDiscountP'), { err: E('maxDiscount') && ' ' })}</div></div>
+      <div class="row gap12"><div class="grow">${C.field('Starting bid', CW.moneyIn('minDiscountP'), { err: E('minDiscount') && ' ' })}</div><div class="grow">${C.field('Maximum bid', CW.moneyIn('maxDiscountP'), { err: E('maxDiscount') && ' ' })}</div></div>
       ${E('minDiscount') || E('maxDiscount') ? `<div class="field-err mb12">${icon('alert', 13)}${E('minDiscount') || E('maxDiscount')}</div>` : ''}
-      ${C.field('Minimum bid increment', CW.moneyIn('incrementP'), { err: E('increment') })}
+      ${C.field('Each new bid must be higher by', CW.moneyIn('incrementP'), { err: E('increment') })}
+      <div class="info-card teal mb8">${icon('clock', 16)}<div><b>Don't want to bid?</b> A member can simply wait. When only one member is left, that member gets the full amount in the last month, with no discount and no auction.</div></div>
       ${adv('advAuction', 'Advanced auction rules', `<div class="label">Tie-break</div>${CW.opts('tieBreak', { first_bid: 'First bid wins', lots: 'Organiser draws lots' }, ChitEngine.TIE_BREAK)}
       <div class="label mt16">If no valid bid is received</div>${CW.opts('noBid', { postpone: 'Postpone 7 days', lots: 'Draw lots at minimum discount', carry: 'Move to next round' }, ChitEngine.NO_BID)}
       <div class="group mt16">
@@ -287,19 +388,29 @@ App.reg('chitWizard', {
       const sd = p.simD || Math.round((r.minDiscountP + r.maxDiscountP) / 2 / r.incrementP) * r.incrementP;
       const sm = Array.from({ length: r.members }, (_, i) => ({ id: 'm' + (i + 1) }));
       const st = ChitEngine.settle(r, p.simN || 1, sd, 'm2', sm);
-      B.fee = `
+      const feeIn = r.feeBasis === 'none' ? '' : r.feeBasis === 'fixed' ? `<div class="mt12">${C.field(fixed ? 'Commission amount' : 'Fixed fee', CW.moneyIn('feeFixedP'), { err: E('fee') })}</div>`
+        : `<div class="mt12">${C.field(fixed ? 'Commission %' : 'Fee percentage', `<div class="row gap8"><div class="prefix-input" style="width:120px"><input inputmode="decimal" value="${r.feeBps / 100}" onchange="CW.set('feeBps',Math.round(parseFloat(this.value||0)*100))"><span>%</span></div><span class="sm muted">${fixed ? 'of the chit amount' : ChitEngine.FEE_BASIS[r.feeBasis]}</span></div>`, { err: E('fee') })}</div>`;
+      const roundPick = `<div class="row between xs"><span>Round <select class="select" style="width:80px;height:32px;display:inline-block;padding:0 24px 0 8px;font-size:13px" onchange="CW.p().simN=+this.value;App.refresh()">${Array.from({ length: r.rounds }, (_, i) => `<option ${(p.simN || 1) === i + 1 ? 'selected' : ''}>${i + 1}</option>`).join('')}</select></span>${fixed ? '' : `<b>${rs(sd)} discount</b>`}</div>`;
+      const timing = r.feeBasis === 'none' ? '' : `
+      <div class="label">When is the fee charged?</div>
+      ${CW.opts('feeTiming', ChitEngine.FEE_TIMING)}
+      ${r.feeTiming === 'selected' ? `<div class="chips wrap mt8">${Array.from({ length: r.rounds }, (_, i) => i + 1).map(n => `<button class="chip ${r.feeRounds.includes(n) ? 'on' : ''}" onclick="var f=CW.p().r.feeRounds;CW.set('feeRounds',f.includes(${n})?f.filter(x=>x!==${n}):f.concat(${n}).sort((a,b)=>a-b))">R${n}</button>`).join('')}</div>${E('feeRounds') ? `<div class="field-err">${icon('alert', 13)}${E('feeRounds')}</div>` : ''}` : ''}`;
+      B.fee = fixed ? `
+      <div class="label">How is the commission taken?</div>
+      ${CW.opts('feeBasis', { pool_pct: '% of the chit amount', fixed: 'Fixed amount', none: 'No commission' }, { pool_pct: `e.g. 5% × ${rs(r.poolP)} = ${rs(r.poolP * 0.05)}`, fixed: 'The same amount every month', none: 'The organiser takes nothing' })}
+      ${feeIn}
+      ${adv('advFee', 'Advanced commission rules', timing)}
+      <div class="card p mt16"><div class="row between mb8"><div class="card-title" style="margin:0">Every month</div><span class="sample-tag">Preview</span></div>
+        ${roundPick}<div class="mt8">${ChitUI.settlement(r, st, { sim: true })}</div></div>`
+      : `
       <div class="label">Fee basis</div>
       ${CW.opts('feeBasis', ChitEngine.FEE_BASIS, { pool_pct: `e.g. 5% × ${rs(r.poolP)} = ${rs(r.poolP * 0.05)}`, discount_pct: 'e.g. 5% of a ₹25,000 discount = ₹1,250', fixed: 'The same amount whenever the fee applies', none: 'The organiser takes no fee' })}
-      ${r.feeBasis === 'none' ? '' : r.feeBasis === 'fixed' ? `<div class="mt12">${C.field('Fixed fee', CW.moneyIn('feeFixedP'), { err: E('fee') })}</div>`
-        : `<div class="mt12">${C.field('Fee percentage', `<div class="row gap8"><div class="prefix-input" style="width:120px"><input inputmode="decimal" value="${r.feeBps / 100}" onchange="CW.set('feeBps',Math.round(parseFloat(this.value||0)*100))"><span>%</span></div><span class="sm muted">${ChitEngine.FEE_BASIS[r.feeBasis]}</span></div>`, { err: E('fee') })}</div>`}
+      ${feeIn}
       ${E('minDiscount') ? `<div class="info-card red mt12">${icon('alert', 16)}<div>${E('minDiscount')} <button class="link" onclick="CW.jump('auction')">Change in Auction rules</button></div></div>` : ''}
       <div class="label mt16">Who receives the dividend?</div>
       ${CW.opts('dividendTo', ChitEngine.DIV_TO)}
-      ${adv('advFee', 'Advanced fee & settlement rules', `${r.feeBasis === 'none' ? '' : `
-      <div class="label">When is the fee charged?</div>
-      ${CW.opts('feeTiming', ChitEngine.FEE_TIMING)}
-      ${r.feeTiming === 'selected' ? `<div class="chips wrap mt8">${Array.from({ length: r.rounds }, (_, i) => i + 1).map(n => `<button class="chip ${r.feeRounds.includes(n) ? 'on' : ''}" onclick="var f=CW.p().r.feeRounds;CW.set('feeRounds',f.includes(${n})?f.filter(x=>x!==${n}):f.concat(${n}).sort((a,b)=>a-b))">R${n}</button>`).join('')}</div>${E('feeRounds') ? `<div class="field-err">${icon('alert', 13)}${E('feeRounds')}</div>` : ''}` : ''}
-      <div class="label mt16">Where does the fee come from?</div>
+      ${adv('advFee', 'Advanced fee & settlement rules', `${timing}
+      ${r.feeBasis === 'none' ? '' : `<div class="label mt16">Where does the fee come from?</div>
       ${CW.opts('feeSource', ChitEngine.FEE_SOURCE)}`}
       <div class="label mt16">Uneven split (paise left over)</div>
       ${CW.opts('remainder', { first_members: 'Lowest ticket numbers get 1 paisa each', organiser: 'Record as a rounding line to the organiser' })}
@@ -307,7 +418,7 @@ App.reg('chitWizard', {
 
       <div class="card p mt16"><div class="row between mb8"><div class="card-title" style="margin:0">Financial preview</div><span class="sample-tag">Preview</span></div>
         <p class="xs muted mb12">How a round settles under these rules. Move the slider to try different winning discounts.</p>
-        <div class="row between xs"><span>Round <select class="select" style="width:80px;height:32px;display:inline-block;padding:0 24px 0 8px;font-size:13px" onchange="CW.p().simN=+this.value;App.refresh()">${Array.from({ length: r.rounds }, (_, i) => `<option ${(p.simN || 1) === i + 1 ? 'selected' : ''}>${i + 1}</option>`).join('')}</select></span><b>${rs(sd)} discount</b></div>
+        ${roundPick}
         <input type="range" class="range" min="${r.minDiscountP / 100}" max="${r.maxDiscountP / 100}" step="${r.incrementP / 100}" value="${sd / 100}" oninput="CW.p().simD=this.value*100;App.refresh()">
         ${ChitUI.settlement(r, st, { sim: true })}</div>`;
     }
@@ -315,22 +426,28 @@ App.reg('chitWizard', {
     // Members & schedule need a saved draft, so they are built only once that section is opened.
     const g = p.id && Chit.g(p.id), diff = g ? g.members.length - r.members : 0, sch = v.errors.startDate ? [] : ChitEngine.schedule(r);
     if (p.open.members && g) {
-      const id = p.id, edits = Object.fromEntries(p.dateEdits || []);
+      const id = p.id, edits = Object.fromEntries(p.dateEdits || []), order = Chit.order(g);
+      const nth = m => { const t = Chit.tickets(g, m); return t.length > 1 ? C.badge(`Chit ${t.indexOf(m) + 1} of ${t.length}`, 'blue') : ''; };
       B.members = `
       <div class="row between mb8"><div class="h3">Members <span class="muted">${g.members.length}/${r.members}</span></div><button class="link" onclick="ChitUI.inviteSheet('${id}')">${icon('plus', 14)} Add</button></div>
-      ${diff ? `<div class="info-card warn mb12">${icon('alert', 16)}<div>${diff < 0 ? `${-diff} ticket${diff < -1 ? 's' : ''} still open.` : `${diff} more than the configured ${r.members}.`} Auctions open only when the accepted member count matches. <button class="link" onclick="CW.addSamples()">Fill with sample members</button></div></div>` : `<div class="info-card teal mb12">${icon('check', 16)}<div>Member count matches the scheme.</div></div>`}
-      <div class="group">${g.members.map(m => `<div class="li">${C.avatar(m.name, null, 34)}<span class="li-main"><span>${m.ticket} · ${esc(m.name)}${m.userId === 'me' ? ' (you)' : ''}</span><span class="xs muted">${fmt.masked(m.phone)} · invite sent on publish</span></span>${m.userId === 'me' ? C.badge('Organiser', 'navy') : `<button class="iconbtn" onclick="CW.removeMember('${m.id}')">${icon('trash', 17)}</button>`}</div>`).join('')}</div>
-      <div class="row between mt24 mb8"><div class="h3">Auction schedule</div><span class="xs muted">Monthly · ${r.auctionTime} IST</span></div>
-      <p class="xs muted mb8">Generated from the first auction date. Tap a round to move it for a holiday or village meeting.</p>
-      <div class="group">${sch.map(x => { const at = edits[x.n] || x.auctionAt; return `<button class="li" onclick="CW.editDate(${x.n})"><span class="rnd">${x.n}</span><span class="li-main"><span>${fmt.day(at)}, ${fmt.time(at)}</span><span class="xs muted">Contribution due ${fmt.dm(new Date(new Date(at).getTime() + r.dueDays * 86400000))}${edits[x.n] ? ' · <b>moved</b>' : ''}</span></span>${icon('edit', 15, 'li-chev')}</button>`; }).join('')}</div>`;
+      ${diff ? `<div class="info-card warn mb12">${icon('alert', 16)}<div>${diff < 0 ? `${-diff} ticket${diff < -1 ? 's' : ''} still open.` : `${diff} more than the configured ${r.members}.`} ${fixed ? 'The chit starts only when every ticket is filled and accepted.' : 'Auctions open only when the accepted member count matches.'} <button class="link" onclick="CW.addSamples()">Fill with sample members</button></div></div>` : `<div class="info-card teal mb12">${icon('check', 16)}<div>Member count matches the scheme.</div></div>`}
+      <div class="group">${g.members.map(m => `<div class="li">${C.avatar(m.name, null, 34)}<span class="li-main"><span>${m.ticket} · ${esc(m.name)}${m.userId === 'me' ? ' (you)' : ''}</span><span class="xs muted">${fmt.masked(m.phone)} · invite sent on publish</span></span>${nth(m)}${m.userId === 'me' && g.members.indexOf(m) === 0 ? C.badge('Organiser', 'navy') : `<button class="iconbtn" onclick="CW.removeMember('${m.id}')">${icon('trash', 17)}</button>`}</div>`).join('')}</div>
+      <div class="row between mt24 mb8"><div class="h3">${fixed ? 'Money days' : 'Auction schedule'}</div><span class="xs muted">Monthly · ${r.auctionTime} IST</span></div>
+      <p class="xs muted mb8">${fixed && r.turnOrder === 'order' ? 'Use the arrows to set who gets the money in which month. Tap a date to move it for a holiday.' : 'Generated from the first date. Tap a round to move it for a holiday or village meeting.'}</p>
+      <div class="group">${sch.map((x, i) => {
+        const at = edits[x.n] || x.auctionAt, who = fixed && r.turnOrder === 'order' ? Chit.mem(g, order[i]) : null;
+        const date = `<span class="li-main"><span>${fmt.day(at)}, ${fmt.time(at)}</span><span class="xs muted">${who ? `<b>${who.ticket} · ${esc(who.name)}</b>` : fixed ? 'Decided by lots on the day' : `Contribution due ${fmt.dm(new Date(new Date(at).getTime() + r.dueDays * 86400000))}`}${edits[x.n] ? ' · <b>moved</b>' : ''}</span></span>`;
+        return who ? `<div class="li"><span class="rnd">${x.n}</span><button class="grow row" style="text-align:left" onclick="CW.editDate(${x.n})">${date}</button><span class="ord-btns"><button class="iconbtn" aria-label="Move up" ${i ? '' : 'disabled'} onclick="CW.move(${i},-1)">▲</button><button class="iconbtn" aria-label="Move down" ${i < sch.length - 1 && i < order.length - 1 ? '' : 'disabled'} onclick="CW.move(${i},1)">▼</button></span></div>`
+          : `<button class="li" onclick="CW.editDate(${x.n})"><span class="rnd">${x.n}</span>${date}${icon('edit', 15, 'li-chev')}</button>`;
+      }).join('')}</div>`;
     }
 
     const SEC = CW.SECTION_FIELDS;
     const sum = {
-      basics: r.name ? esc(r.name) : 'Name, description, visibility',
-      money: r.poolP > 0 && r.members ? `${rs(r.poolP)} · ${r.members} members · ${r.rounds} rounds${r.poolP % r.members ? '' : ' · ' + rs(r.poolP / r.members) + ' each'}` : 'Pool, members, rounds',
-      auction: `${sch.length ? fmt.date(sch[0].auctionAt) + ' · ' : ''}${rs(r.minDiscountP)} – ${rs(r.maxDiscountP)} discount`,
-      fee: `${ChitEngine.feeLabel(r, rs)} · dividend ${ChitEngine.DIV_TO[r.dividendTo]}`,
+      basics: r.name ? esc(r.name) : 'Name, company, photo',
+      money: r.poolP > 0 && r.members ? `${rs(r.poolP)} · ${r.members} chits · ${r.rounds} months${r.poolP % r.members ? '' : ' · ' + rs(r.poolP / r.members) + ' each'}` : 'Amount, chits, months',
+      auction: fixed ? `${sch.length ? fmt.date(sch[0].auctionAt) + ' · ' : ''}${r.turnOrder === 'lots' ? 'Draw lots' : 'Fixed order'}` : `${sch.length ? fmt.date(sch[0].auctionAt) + ' · ' : ''}${rs(r.minDiscountP)} – ${rs(r.maxDiscountP)} discount`,
+      fee: fixed ? `Commission ${ChitEngine.feeLabel(r, rs).replace('of monthly gross pool', 'of chit amount')}` : `${ChitEngine.feeLabel(r, rs)} · dividend ${ChitEngine.DIV_TO[r.dividendTo]}`,
       members: g ? `${g.members.length}/${r.members} added · ${r.rounds} round dates` : 'Add members, adjust round dates'
     };
     const sect = (key, n, title, html) => {
@@ -344,12 +461,12 @@ App.reg('chitWizard', {
     const body = `
       ${p.showErr && allErrs.length ? `<div class="info-card red mb12">${icon('alert', 16)}<div><b>Fix before publishing:</b><br>${allErrs.join('<br>')}</div></div>` : ''}
       ${sect('basics', 1, 'Basic details', B.basics)}
-      ${sect('money', 2, 'Money', B.money)}
-      ${sect('auction', 3, 'Auction rules', B.auction)}
-      ${sect('fee', 4, 'Fee & dividend', B.fee)}
+      ${sect('money', 2, 'Amount & chits', B.money)}
+      ${sect('auction', 3, fixed ? 'Money day & turn' : 'Auction rules', B.auction)}
+      ${sect('fee', 4, fixed ? 'Commission' : 'Commission & dividend', B.fee)}
       ${sect('members', 5, 'Members & schedule', B.members)}
       <div class="info-card warn mt16 mb12">${icon('scale', 16)}<div><b>Legal review required.</b> Chit funds are regulated (Chit Funds Act, 1982 and state rules). Publishing in this prototype does not make a scheme compliant. Agreement version: <b>v1 (draft)</b>.</div></div>
-      <p class="xs muted mb12">Overdue members cannot bid until paid. Corrections are recorded as reversals or adjustments with a reason. Members can raise a dispute from any round. Refund and exit terms follow the signed agreement.</p>
+      <p class="xs muted mb12">${fixed ? 'Members with unpaid dues are followed up before their month. ' : 'Overdue members cannot bid until paid. '}Corrections are recorded as reversals or adjustments with a reason. Members can raise a dispute from any round. Refund and exit terms follow the signed agreement.</p>
       <button class="opt ${p.confirm ? 'on' : ''} ${p.showErr && !p.confirm ? 'err-opt' : ''}" onclick="CW.p().confirm=!CW.p().confirm;App.refresh()"><span class="check">${p.confirm ? icon('check', 13) : ''}</span><span class="grow sm">I have reviewed these rules. Members will accept this exact version, and material terms cannot change after the chit starts.</span></button>`;
 
     return `${C.appbar(p.id ? 'Edit chit draft' : 'Create chit group', { white: true, onBack: 'CW.back()', right: `<button class="appbar-act" onclick="CW.save()">Save draft</button>` })}
@@ -375,14 +492,16 @@ App.reg('chitHome', {
     const tab = p.tab || 'overview';
     const c = Chit.current(g), x = Chit.stats(g);
     const tabs = [['overview', 'Overview'], ['rounds', 'Rounds'], ['members', 'Members'], [admin ? 'payments' : 'ledger', admin ? 'Payments' : 'My ledger', admin ? x.toVerify.length + x.overdue.length : 0], ['more', 'More']];
+    const plain = Chit.noAuction(g), fixed = Chit.isFixed(g), turn = fixed && g.rules.turnOrder === 'order' && c.status === 'SCHEDULED' ? Chit.turnFor(g, c.n) : null;
     const hero = `<div class="p-hero chit-hero">
         <div class="row between"><span class="sub">${s.code} · ${esc(s.place || 'Chit group')}</span>${C.roleBadge(role, 'chit')}</div>
-        <div class="row between mt8" style="align-items:flex-end"><div><div class="sub">Monthly pool</div><div class="hero-big">${rs(g.rules.poolP)}</div></div>
+        ${g.rules.company || g.rules.photo ? `<div class="hero-co">${g.rules.photo ? `<img src="${g.rules.photo}" alt="">` : ''}<span><b data-raw>${esc(g.rules.company || '')}</b><small>${ChitEngine.TYPES[g.rules.chitType || 'auction']}</small></span></div>` : ''}
+        <div class="row between mt8" style="align-items:flex-end"><div><div class="sub">${fixed ? 'Chit amount' : 'Monthly pool'}</div><div class="hero-big">${rs(g.rules.poolP)}</div></div>
           <div style="text-align:right"><div class="sub">Round</div><div class="h2">${c.n}<span class="sub"> / ${g.rules.rounds}</span></div></div></div>
         <div class="meter light mt8"><i style="width:${Chit.settledCount(g) / g.rules.rounds * 100}%"></i></div>
         <div class="online-row">${c.status === 'OPEN' ? '<span class="live-dot"></span>' : icon('calendar', 16)}<div class="grow"><b>${c.status === 'OPEN' ? `Round ${c.n} auction is live` : c.status === 'SCHEDULED' ? `Round ${c.n} · ${fmt.when(c.auctionAt)}` : `Round ${c.n} · ${ROUND_ST[c.status].label}`}</b>
-          <span class="xs" style="opacity:.8">${c.status === 'OPEN' ? 'Closes in <span data-cd="' + c.endsAt + '">' + fmt.clock((new Date(c.endsAt) - Date.now()) / 1000) + '</span>' : c.status === 'SCHEDULED' ? 'Opens <span data-cd="' + c.auctionAt + '">' + fmt.until(c.auctionAt) + '</span>' : 'Tap for details'}</span></div>
-          <button class="btn btn-white btn-sm" onclick="App.go('${['OPEN', 'SCHEDULED'].includes(c.status) ? 'chitAuction' : 'chitRound'}',{id:'${p.id}',n:${c.n}})">${c.status === 'OPEN' ? 'Join' : 'Open'}</button></div>
+          <span class="xs" style="opacity:.8">${c.status === 'OPEN' ? 'Closes in <span data-cd="' + c.endsAt + '">' + fmt.clock((new Date(c.endsAt) - Date.now()) / 1000) + '</span>' : turn ? `Goes to ${turn.userId === 'me' ? 'you' : turn.ticket}` : c.status === 'SCHEDULED' ? (plain ? 'Money day ' : 'Opens ') + '<span data-cd="' + c.auctionAt + '">' + fmt.until(c.auctionAt) + '</span>' : 'Tap for details'}</span></div>
+          <button class="btn btn-white btn-sm" onclick="App.go('${c.status === 'OPEN' || (c.status === 'SCHEDULED' && !plain) ? 'chitAuction' : 'chitRound'}',{id:'${p.id}',n:${c.n}})">${c.status === 'OPEN' ? 'Join' : 'Open'}</button></div>
       </div>`;
 
     let body = '';
@@ -419,7 +538,19 @@ const ChitHome = {
           ${C.bar(os.reduce((a, o) => a + o.paidP, 0) / Math.max(1, os.reduce((a, o) => a + o.netP, 0)) * 100)}
           <div class="row gap8 mt8 wrap">${C.badge(`${n('overdue')} overdue`, 'red')}${C.badge(`${n('partial')} part paid`, 'warn')}${C.badge(`${n('verifying')} verifying`, 'blue')}${C.badge(`${n('pending')} due`, 'grey')}</div></div></div>`;
     }
-    const mine = me && me.invite === 'ACCEPTED' ? (() => {
+    const tickets = Chit.mine(g).filter(m => m.invite === 'ACCEPTED');
+    // Additional chits: one row per ticket, each with its own month, dues and Pay button.
+    const mine = tickets.length > 1 || (tickets.length && Chit.isFixed(g)) ? (() => {
+      const fixedOrder = Chit.isFixed(g) && g.rules.turnOrder === 'order', order = Chit.order(g);
+      const all = tickets.reduce((a, m) => a + Chit.arrears(g, m.id).reduce((b, o) => b + o.balP, 0), 0);
+      return `${C.sec(tickets.length > 1 ? `Your chits (${tickets.length})` : 'Your chit')}
+        <div class="px">${tickets.map(m => {
+          const owe = Chit.arrears(g, m.id).reduce((a, o) => a + o.balP, 0);
+          const month = m.wins.length ? `Got the money in round ${m.wins[0]}` : fixedOrder && g.rounds[order.indexOf(m.id)] ? `Your month: round ${order.indexOf(m.id) + 1} · ${fmt.date(g.rounds[order.indexOf(m.id)].auctionAt)}` : Chit.isFixed(g) ? 'Your month is decided by lots' : 'Not won yet';
+          return `<div class="card p my-chit"><div class="row between"><div class="row gap8"><span class="tk">${m.ticket}</span><div><div class="b">${month}</div><div class="xs muted">${owe ? `Owes ${rs(owe)}` : 'Paid up'}</div></div></div>${m.wins.length ? C.badge('Received', 'green') : ''}</div>
+            <div class="row gap8 mt12"><button class="btn btn-outline btn-md grow" onclick="App.go('chitMember',{id:'${id}',mid:'${m.id}'})">Statement</button>${owe ? `<button class="btn btn-primary btn-md grow" onclick="ChitUI.paySheet('${id}','${m.id}')">Pay ${rs(owe)}</button>` : ''}</div></div>`;
+        }).join('')}${tickets.length > 1 && all ? `<p class="xs muted center mt8">Total due for your ${tickets.length} chits: <b>${rs(all)}</b></p>` : ''}</div>`;
+    })() : me && me.invite === 'ACCEPTED' ? (() => {
       const ar = Chit.arrears(g, me.id), el = Chit.eligibility(g, me.id, Chit.current(g).n);
       return `${C.sec('Your position', `<button class="link" onclick="App.go('chitMember',{id:'${id}',mid:'${me.id}'})">Statement</button>`)}
         <div class="px"><div class="mini-grid">
@@ -432,15 +563,15 @@ const ChitHome = {
     return `
       ${pend.length ? `<div class="px mt12">${pend.slice(0, 4).map(a => `<button class="status-banner ${a.tone} act-row" onclick="App.go('${a.go.s}',${JSON.stringify(a.go.p).replace(/"/g, "'")})"><div class="sb-ic">${icon(a.ic, 18)}</div><div class="grow"><h3>${a.title}</h3><p>${a.sub}</p></div>${icon('chevron', 16)}</button>`).join('')}</div>` : ''}
       ${pr ? `<div class="px mt12"><div class="card p"><div class="row between"><div class="b">Round ${pr.n} result</div>${ChitUI.roundBadge(pr)}</div>
-        <div class="row gap12 mt8">${C.avatar(Chit.mem(g, pr.result.winnerId).name, null, 40)}<div class="grow"><div class="b">${ChitUI.memName(id, g, Chit.mem(g, pr.result.winnerId))}</div><div class="xs muted">Winning discount ${rs(pr.result.discountP)} · payout ${rs(pr.result.st.payoutNetP)}</div></div></div>
+        <div class="row gap12 mt8">${C.avatar(Chit.mem(g, pr.result.winnerId).name, null, 40)}<div class="grow"><div class="b">${ChitUI.memName(id, g, Chit.mem(g, pr.result.winnerId))}</div><div class="xs muted">${pr.result.how ? `${ChitUI.howLabel(pr.result.how)} · gets ${rs(pr.result.st.payoutNetP)}` : `Winning discount ${rs(pr.result.discountP)} · payout ${rs(pr.result.st.payoutNetP)}`}</div></div></div>
         <button class="btn ${admin ? 'btn-primary' : 'btn-outline'} btn-block btn-md mt12" onclick="App.go('chitRound',{id:'${id}',n:${pr.n}})">${admin ? 'Review & approve' : 'View result'}</button></div></div>` : ''}
       ${mine}
       ${col}
       ${admin ? `${C.sec('Group totals')}<div class="px"><div class="mini-grid">
         <div class="mini"><div class="l">Contributions collected</div><div class="v">${rs(x.collectedP)}</div></div>
         <div class="mini"><div class="l">Outstanding</div><div class="v ${x.outstandingP ? 'red' : ''}">${rs(x.outstandingP)}</div></div>
-        <div class="mini"><div class="l">Fees (${ChitEngine.feeLabel(g.rules, rs).replace('of monthly gross pool', 'of pool')})</div><div class="v">${rs(x.feesP)}</div></div>
-        <div class="mini"><div class="l">Dividends credited</div><div class="v">${rs(x.divP)}</div></div>
+        <div class="mini"><div class="l">${Chit.isFixed(g) ? 'Commission' : `Fees (${ChitEngine.feeLabel(g.rules, rs).replace('of monthly gross pool', 'of pool')})`}</div><div class="v">${rs(x.feesP)}</div></div>
+        ${Chit.isFixed(g) ? `<div class="mini"><div class="l">Payouts to approve</div><div class="v">${g.rounds.filter(r => r.payout && r.payout.status !== 'PAID').length}</div></div>` : `<div class="mini"><div class="l">Dividends credited</div><div class="v">${rs(x.divP)}</div></div>`}
         <div class="mini"><div class="l">Paid to winners</div><div class="v">${rs(x.paidOutP)}</div></div>
         <div class="mini"><div class="l">Members accepted</div><div class="v">${Chit.active(g).length}/${g.rules.members}</div></div></div></div>` : ''}
       ${C.sec('Recent rounds', `<button class="link" onclick="App.set('tab','rounds')">All rounds</button>`)}
@@ -450,9 +581,13 @@ const ChitHome = {
 
   roundCard(id, g, r) {
     const res = r.result, w = res && Chit.mem(g, res.winnerId), moved = r.origAt && r.origAt !== r.auctionAt;
+    const turn = !res && Chit.isFixed(g) && g.rules.turnOrder === 'order' ? Chit.turnFor(g, r.n) : null;
+    const grid = !res ? '' : res.how
+      ? `<div class="rd-grid"><div><span>Got the money</span><b>${w.userId === 'me' ? `You · ${w.ticket}` : w.ticket}</b></div><div><span>Commission</span><b>${rs(res.st.feeP)}</b></div><div><span>Paid out</span><b>${rs(res.st.payoutNetP)}</b></div></div>`
+      : `<div class="rd-grid"><div><span>Winner</span><b>${w.userId === 'me' ? 'You' : w.ticket}</b></div><div><span>Discount</span><b>${rs(res.discountP)}</b></div><div><span>Payout</span><b>${rs(res.st.payoutNetP)}</b></div><div><span>Fee</span><b>${rs(res.st.feeP)}</b></div><div><span>Dividend pool</span><b>${rs(res.st.dividendPoolP)}</b></div><div><span>Per member</span><b>${rs(res.st.perMemberP)}</b></div></div>`;
     return `<button class="card rd" onclick="App.go('${r.status === 'OPEN' ? 'chitAuction' : 'chitRound'}',{id:'${id}',n:${r.n}})">
-      <div class="row between"><div class="row gap8"><span class="rnd ${r.status === 'SETTLED' ? 'done' : r.status === 'OPEN' ? 'live' : ''}">${r.n}</span><div><div class="b">${fmt.day(r.auctionAt)}, ${fmt.time(r.auctionAt)}</div>${moved ? `<div class="tiny muted">Originally ${fmt.dm(r.origAt)}</div>` : ''}</div></div>${ChitUI.roundBadge(r)}</div>
-      ${res ? `<div class="rd-grid"><div><span>Winner</span><b>${w.userId === 'me' ? 'You' : w.ticket}</b></div><div><span>Discount</span><b>${rs(res.discountP)}</b></div><div><span>Payout</span><b>${rs(res.st.payoutNetP)}</b></div><div><span>Fee</span><b>${rs(res.st.feeP)}</b></div><div><span>Dividend pool</span><b>${rs(res.st.dividendPoolP)}</b></div><div><span>Per member</span><b>${rs(res.st.perMemberP)}</b></div></div>
+      <div class="row between"><div class="row gap8"><span class="rnd ${r.status === 'SETTLED' ? 'done' : r.status === 'OPEN' ? 'live' : ''}">${r.n}</span><div><div class="b">${fmt.day(r.auctionAt)}, ${fmt.time(r.auctionAt)}</div>${moved ? `<div class="tiny muted">Originally ${fmt.dm(r.origAt)}</div>` : ''}${turn ? `<div class="xs muted">Goes to ${turn.userId === 'me' ? 'you · ' + turn.ticket : turn.ticket + ' · ' + esc(turn.name)}</div>` : ''}</div></div>${ChitUI.roundBadge(r)}</div>
+      ${res ? `${grid}
         ${r.payout ? `<div class="row between mt8 xs"><span class="muted">Payout</span>${ChitUI.payoutBadge(r.payout)}</div>` : ''}` : ''}
     </button>`;
   },
@@ -460,7 +595,7 @@ const ChitHome = {
   rounds(id, g) {
     const done = g.rounds.filter(r => r.result || r.status === 'NO_VALID_BIDS'), up = g.rounds.filter(r => !r.result && r.status !== 'NO_VALID_BIDS');
     return `<div class="px mt12">
-      <div class="info-card mb12">${icon('info', 16)}<div>Every round stays in history, including postponed or no-bid rounds. Fee: ${ChitEngine.feeLabel(g.rules, rs)}, ${ChitEngine.FEE_TIMING[g.rules.feeTiming].toLowerCase()}.</div></div>
+      <div class="info-card mb12">${icon('info', 16)}<div>${Chit.isFixed(g) ? `No auction. ${g.rules.turnOrder === 'lots' ? 'Each month lots are drawn among chits that have not got the money.' : 'Each month the next chit in the agreed order gets the money.'} Commission: ${ChitEngine.feeLabel(g.rules, rs)}.` : `Every round stays in history, including postponed or no-bid rounds. Fee: ${ChitEngine.feeLabel(g.rules, rs)}, ${ChitEngine.FEE_TIMING[g.rules.feeTiming].toLowerCase()}.`}</div></div>
       ${up.length ? `<div class="group-label">Upcoming & current</div>${up.slice(0, 3).map(r => ChitHome.roundCard(id, g, r)).join('')}${up.length > 3 ? `<details class="more-rounds"><summary class="link">Show ${up.length - 3} more scheduled rounds</summary>${up.slice(3).map(r => ChitHome.roundCard(id, g, r)).join('')}</details>` : ''}` : ''}
       ${done.length ? `<div class="group-label">Completed</div>${done.slice().reverse().map(r => ChitHome.roundCard(id, g, r)).join('')}` : ''}
       ${Reg.can(id, 'reports') ? `<button class="btn btn-outline btn-block mt16" onclick="ChitUI.exportCsv('${id}')">${icon('download', 17)}Export round history (CSV)</button>` : ''}</div>`;
@@ -473,9 +608,10 @@ const ChitHome = {
       ${!admin ? `<div class="info-card mb12">${icon('lock', 16)}<div>Phone numbers, bank details and payment references of other members are private. You see ticket numbers and display names only.</div></div>` : ''}
       <div class="group">${g.members.map(m => {
         const ar = Chit.arrears(g, m.id), od = ar.some(o => o.status === 'overdue');
-        const tag = m.invite === 'INVITED' ? C.badge('Invited', 'warn') : od && admin ? C.badge('Overdue', 'red') : m.wins.length ? C.badge('Won R' + m.wins[0], 'teal') : '';
-        const can = admin || m.userId === 'me';
-        return `<${can ? 'button' : 'div'} class="li" ${can ? `onclick="App.go('chitMember',{id:'${id}',mid:'${m.id}'})"` : ''}>${C.avatar(m.name, null, 36)}<span class="li-main"><span>${m.ticket} · ${m.userId === 'me' ? 'You' : esc(m.name)}</span><span class="xs muted">${admin ? fmt.phone(m.phone) + (m.acceptedVersion ? ` · rules v${m.acceptedVersion}` : ' · not accepted') : m.invite === 'INVITED' ? 'Invitation pending' : 'Member'}</span></span>${tag}${can ? icon('chevron', 16, 'li-chev') : ''}</${can ? 'button' : 'div'}>`;
+        const tag = m.invite === 'INVITED' ? C.badge('Invited', 'warn') : od && admin ? C.badge('Overdue', 'red') : m.wins.length ? C.badge((Chit.isFixed(g) ? 'Got R' : 'Won R') + m.wins[0], 'teal') : '';
+        const can = admin || m.userId === 'me', t = Chit.tickets(g, m);
+        const multi = t.length > 1 ? `<span class="xs multi">${icon('users', 12)} Chit ${t.indexOf(m) + 1} of ${t.length}</span>` : '';
+        return `<${can ? 'button' : 'div'} class="li" ${can ? `onclick="App.go('chitMember',{id:'${id}',mid:'${m.id}'})"` : ''}>${C.avatar(m.name, null, 36)}<span class="li-main"><span>${m.ticket} · ${m.userId === 'me' ? 'You' : esc(m.name)}</span>${multi}<span class="xs muted">${admin ? fmt.phone(m.phone) + (m.acceptedVersion ? ` · rules v${m.acceptedVersion}` : ' · not accepted') : m.invite === 'INVITED' ? 'Invitation pending' : 'Member'}</span></span>${tag}${can ? icon('chevron', 16, 'li-chev') : ''}</${can ? 'button' : 'div'}>`;
       }).join('')}</div></div>`;
   },
 
@@ -515,7 +651,7 @@ const ChitHome = {
     const s = svcById(id);
     return `<div class="px mt12"><div class="group">
       ${C.item('file', 'Rules & agreement', `App.go('chitRules',{id:'${id}'})`, { sub: `Version ${g.ruleVersions.length} · published ${fmt.date(g.ruleVersions[g.ruleVersions.length - 1].publishedAt)}` })}
-      ${C.item('calc', 'Scheme calculator', `App.go('chitCalc',{id:'${id}'})`, { sub: 'Simulation only · never creates real entries' })}
+      ${Chit.isFixed(g) ? '' : C.item('calc', 'Scheme calculator', `App.go('chitCalc',{id:'${id}'})`, { sub: 'Simulation only · never creates real entries' })}
       ${admin ? C.item('chart', 'Reports & reconciliation', `App.go('chitReports',{id:'${id}'})`, { sub: 'Collections, fees, dividends, payouts' }) : ''}
       ${C.item('flag', 'Disputes', `App.go('chitDisputes',{id:'${id}'})`, { right: g.disputes.length || '' })}
       ${C.item('history', 'Audit log', `App.go('audit',{svc:'${id}'})`, { sub: 'Who changed what, when and why' })}
@@ -535,8 +671,12 @@ App.reg('chitRound', {
   render(p) {
     const s = svcById(p.id), g = Chit.g(p.id), r = Chit.round(g, p.n), admin = myRole(p.id) === 'admin', me = Chit.me(g);
     const res = r.result, w = res && Chit.mem(g, res.winnerId);
+    const fixed = Chit.isFixed(g), plain = r.status === 'SCHEDULED' && Chit.noAuction(g);
+    const turn = fixed && g.rules.turnOrder === 'order' && !res ? Chit.turnFor(g, r.n) : null;
     const banners = {
-      SCHEDULED: ['blue', 'calendar', `Auction ${fmt.when(r.auctionAt)}`, `Opens ${fmt.until(r.auctionAt)}. The server opens and closes bidding automatically.`],
+      SCHEDULED: plain
+        ? ['blue', 'calendar', `Money day ${fmt.when(r.auctionAt)}`, turn ? `This month the chit goes to ${turn.userId === 'me' ? 'you (' + turn.ticket + ')' : turn.ticket + ' · ' + esc(turn.name)}. No auction.` : fixed ? 'Lots are drawn on the day among chits that have not got the money yet.' : `Only ${Chit.lastOne(g).ticket} is left, so there is no auction. They get the full amount.`]
+        : ['blue', 'calendar', `Auction ${fmt.when(r.auctionAt)}`, `Opens ${fmt.until(r.auctionAt)}. The server opens and closes bidding automatically.`],
       OPEN: ['red', 'gavel', 'Auction is live', 'Bidding is open. Server time decides acceptance and closing.'],
       RESULT_PENDING_APPROVAL: ['warn', 'clock', 'Result pending approval', admin ? 'Check the calculation, then approve to finalise and post the settlement.' : 'The organiser is reviewing the result. Amounts are not final yet.'],
       FINALIZED: ['teal', 'check', 'Result finalised', 'Settlement is being posted.'],
@@ -546,7 +686,6 @@ App.reg('chitRound', {
       CANCELLED: ['red', 'x', 'Round cancelled', '']
     };
     const b = banners[r.status] || banners.SCHEDULED;
-    const ob = me && r.status === 'SETTLED' ? Chit.oblig(g, me.id, r.n) : null;
     const showBids = r.bids.filter(x => x.status === 'ACCEPTED' && !x.round);
     const visible = admin || g.rules.bidVisibility === 'all' ? showBids : showBids.filter(x => x.id === (res && res.bidId) || (me && x.memberId === me.id));
     const p2 = r.payout, pi = p2 ? PAYOUT_PATH.indexOf(p2.status) : -1;
@@ -560,25 +699,26 @@ App.reg('chitRound', {
     return `${C.appbar(`Round ${r.n}`, { white: true, sub: esc(s.name) })}
       <div class="content">
         <div class="px mt12">${C.banner(b[0], b[1], b[2], b[3])}</div>
-        ${['SCHEDULED', 'OPEN'].includes(r.status) ? `<div class="px mt12"><button class="btn btn-primary btn-block" onclick="App.go('chitAuction',{id:'${p.id}',n:${r.n}})">${icon('gavel', 18)}${r.status === 'OPEN' ? 'Enter auction room' : 'View auction room'}</button></div>` : ''}
+        ${plain ? (admin ? `<div class="demo-strip">${icon('sparkles', 15)}<span>Prototype: the server decides this turn on the money day.</span><button onclick="if(ChitClock.openNow('${p.id}'))App.refresh()">${fixed && g.rules.turnOrder === 'lots' ? 'Draw lots now' : 'Do it now'}</button></div>` : '')
+          : ['SCHEDULED', 'OPEN'].includes(r.status) ? `<div class="px mt12"><button class="btn btn-primary btn-block" onclick="App.go('chitAuction',{id:'${p.id}',n:${r.n}})">${icon('gavel', 18)}${r.status === 'OPEN' ? 'Enter auction room' : 'View auction room'}</button></div>` : ''}
 
         ${C.sec('Schedule')}<div class="px"><div class="card p">
-          ${C.kv('gavel', 'Auction', `${fmt.dt(r.auctionAt)} IST${r.endsAt && r.status !== 'SCHEDULED' ? ` · closed ${fmt.time(r.closedAt || r.endsAt)}` : ` · ${g.rules.auctionMinutes} min window`}`)}
+          ${fixed || (res && res.how) ? C.kv('coins', 'Money day', `${fmt.dt(r.auctionAt)} IST`) : C.kv('gavel', 'Auction', `${fmt.dt(r.auctionAt)} IST${r.endsAt && r.status !== 'SCHEDULED' ? ` · closed ${fmt.time(r.closedAt || r.endsAt)}` : ` · ${g.rules.auctionMinutes} min window`}`)}
           ${r.origAt !== r.auctionAt ? C.kv('history', 'Originally scheduled', fmt.dt(r.origAt)) : ''}
           ${C.kv('wallet', 'Contribution due', fmt.dt(r.dueAt))}
           ${admin && r.status === 'SCHEDULED' ? `<button class="btn btn-outline btn-block btn-md mt8" onclick="ChitUI.rescheduleSheet('${p.id}',${r.n})">${icon('calendar', 17)}Reschedule</button>` : ''}</div></div>
 
         ${res ? `${C.sec('Result')}<div class="px"><div class="card p">
-          <div class="row gap12">${C.avatar(w.name, null, 44)}<div class="grow"><div class="b">${ChitUI.memName(p.id, g, w)}</div><div class="xs muted">Winning bid ${rs(res.discountP)} at ${fmt.time(r.bids.find(x => x.id === res.bidId).at)} (server time)</div></div>${C.badge(res.status === 'FINAL' ? 'Final' : 'Draft', res.status === 'FINAL' ? 'green' : 'warn')}</div>
+          <div class="row gap12">${C.avatar(w.name, null, 44)}<div class="grow"><div class="b">${ChitUI.memName(p.id, g, w)}</div><div class="xs muted">${res.how ? `${ChitUI.howLabel(res.how)} · ${fmt.time(res.closedAt)}` : `Winning bid ${rs(res.discountP)} at ${fmt.time(r.bids.find(x => x.id === res.bidId).at)} (server time)`}</div></div>${C.badge(res.status === 'FINAL' ? 'Final' : 'Draft', res.status === 'FINAL' ? 'green' : 'warn')}</div>
           ${res.tie ? `<div class="info-card warn mt12">${icon('scale', 16)}<div>Tie at ${rs(res.discountP)}. ${ChitEngine.TIE_BREAK[g.rules.tieBreak]}.</div></div>` : ''}
           ${res.approvedAt ? `<div class="xs muted mt8">Approved by ${esc(actorName(res.approvedBy))} · ${fmt.dt(res.approvedAt)} · rules v${res.rulesVersion} · ${res.st.version}</div>` : ''}
         </div></div>
         ${C.sec(res.status === 'FINAL' ? 'Final settlement' : 'Draft settlement')}<div class="px"><div class="card p">${ChitUI.settlement(g.rules, res.st)}</div></div>
         ${r.status === 'RESULT_PENDING_APPROVAL' && admin ? `<div class="px mt12"><button class="btn btn-primary btn-block" onclick="UI.confirm({title:'Approve and finalise?',message:'The result becomes final and the settlement is posted to every member ledger. It cannot be edited afterwards — only adjusted with a recorded reason.',confirm:'Approve',icon:'check',onConfirm:()=>Chit.approveResult('${p.id}',${r.n})})">${icon('check', 18)}Approve result</button></div>` : ''}` : ''}
 
-        ${ob ? `${C.sec('Your round ' + r.n)}<div class="px"><div class="card p">${C.rows([['Scheduled contribution', rs(ob.dueP)], ['Dividend credit', '− ' + rs(ob.creditP)], ['Net contribution', rs(ob.netP)], ['Paid (confirmed)', rs(ob.paidP)]], ['Balance', rs(ob.balP)])}
-          <div class="row between mt12">${ChitUI.oblBadge(ob)}${ob.balP > 0 ? `<button class="btn btn-primary btn-sm" onclick="ChitUI.paySheet('${p.id}','${me.id}',${r.n})">Pay ${rs(ob.balP)}</button>` : ''}</div>
-          <p class="tiny muted mt8">A dividend is shown as credited against your contribution — it is not paid to you in cash.</p></div></div>` : ''}
+        ${me && r.status === 'SETTLED' ? Chit.mine(g).map(t => { const o = Chit.oblig(g, t.id, r.n), many = Chit.mine(g).length > 1; return `${C.sec(many ? `Your round ${r.n} · ${t.ticket}` : 'Your round ' + r.n)}<div class="px"><div class="card p">${C.rows(fixed ? [['Contribution', rs(o.dueP)], ['Paid (confirmed)', rs(o.paidP)]] : [['Scheduled contribution', rs(o.dueP)], ['Dividend credit', '− ' + rs(o.creditP)], ['Net contribution', rs(o.netP)], ['Paid (confirmed)', rs(o.paidP)]], ['Balance', rs(o.balP)])}
+          <div class="row between mt12">${ChitUI.oblBadge(o)}${o.balP > 0 ? `<button class="btn btn-primary btn-sm" onclick="ChitUI.paySheet('${p.id}','${t.id}',${r.n})">Pay ${rs(o.balP)}</button>` : ''}</div>
+          ${fixed ? '' : '<p class="tiny muted mt8">A dividend is shown as credited against your contribution — it is not paid to you in cash.</p>'}</div></div>`; }).join('') : ''}
 
         ${p2 ? `${C.sec('Winner payout')}<div class="px"><div class="card p">
           <div class="row between"><div><div class="xs muted">Net payout</div><div class="h2">${rs(p2.netP)}</div></div>${ChitUI.payoutBadge(p2)}</div>
@@ -601,9 +741,10 @@ App.reg('chitRound', {
 /* ===================== Live auction room ===================== */
 const AR = {
   amt: null,
+  mid: null, // which of my tickets is bidding (additional chits)
   bid(id, n) {
     const g = Chit.g(id), r = Chit.round(g, n), hi = Chit.highest(r);
-    const v = AR.amt;
+    const v = AR.amt, mid = AR.mid;
     const err = ChitEngine.checkBid(g.rules, hi ? hi.discountP : 0, v);
     if (err) return UI.toast(err, 'err');
     const req = uid('q'); // created once per confirmation, so a retried tap cannot create a second bid
@@ -614,7 +755,7 @@ const AR = {
       onConfirm: () => {
         const btn = document.getElementById('bidBtn'); if (btn) btn.classList.add('loading');
         setTimeout(() => {
-          const b = Chit.placeBid(id, n, v, req);
+          const b = Chit.placeBid(id, n, v, req, mid);
           if (!b) return;
           if (b.status === 'ACCEPTED') UI.toast(`Bid accepted at ${toDate(b.at).toLocaleTimeString(I18n.locale(), { timeZone: TZ, hour12: true })}`, 'ok');
           else UI.toast('Bid rejected: ' + b.reason, 'err');
@@ -634,33 +775,40 @@ App.reg('chitAuction', {
   guard: chitGuard,
   mount() { ChitClock.tick(); },
   render(p) {
-    const s = svcById(p.id), g = Chit.g(p.id), r = Chit.round(g, p.n), me = Chit.me(g), admin = myRole(p.id) === 'admin';
-    if (!p._init) { p._init = true; AR.amt = null; }
+    const s = svcById(p.id), g = Chit.g(p.id), r = Chit.round(g, p.n), admin = myRole(p.id) === 'admin';
+    // Fixed chits and the last ticket have no auction: show the round instead.
+    if (r.status === 'SCHEDULED' && Chit.noAuction(g)) { setTimeout(() => App.replace('chitRound', { id: p.id, n: p.n }), 0); return ''; }
+    const mine = Chit.mine(g).filter(m => m.status === 'ACTIVE');
+    if (!p._init) { p._init = true; AR.amt = null; AR.mid = (mine.find(m => Chit.eligibility(g, m.id, r.n).ok) || mine[0] || {}).id || null; }
+    const me = mine.find(m => m.id === AR.mid) || Chit.me(g);
     const hi = Chit.highest(r), open = r.status === 'OPEN';
     const min = hi ? hi.discountP + g.rules.incrementP : g.rules.minDiscountP;
     if (AR.amt == null || AR.amt < min) AR.amt = Math.min(min, g.rules.maxDiscountP);
     const el = me ? Chit.eligibility(g, me.id, r.n) : { ok: false, reasons: ['You do not hold a ticket in this chit.'] };
+    const pickTicket = mine.length > 1 ? `<div class="label mt12">Bid with which chit?</div><div class="count-pick">${mine.map(m => { const ok = Chit.eligibility(g, m.id, r.n).ok; return `<button class="${m.id === (me && me.id) ? 'on' : ''}" onclick="AR.mid='${m.id}';App.refresh()"><b>${m.ticket}</b><span>${ok ? 'Can bid' : m.wins.length ? 'Won R' + m.wins[0] : 'Cannot bid'}</span></button>`; }).join('')}</div>` : '';
+    const noBid = `<div class="info-card teal mt12">${icon('clock', 16)}<div><b>Don't want to bid?</b> That is fine. Just wait. The last member gets the full amount in the final month, with no discount.</div></div>`;
     const est = hi ? ChitEngine.settle(g.rules, r.n, hi.discountP, hi.memberId, Chit.active(g)) : null;
     const accepted = r.bids.filter(b => !b.round && (b.status === 'ACCEPTED' || (me && b.memberId === me.id)));
     const feed = (admin || g.rules.bidVisibility === 'all' ? accepted : accepted.filter(b => b === hi || (me && b.memberId === me.id))).slice().reverse();
     const hm = hi && Chit.mem(g, hi.memberId);
-    const leading = hm && me && hm.id === me.id;
+    const leading = hm && mine.some(m => m.id === hm.id);
 
     const room = open ? `
       <div class="auc-hero ${leading ? 'lead' : ''}">
         <div class="row between"><span class="live-pill"><span class="live-dot"></span>LIVE · Round ${r.n}</span><span class="auc-cd">${icon('clock', 15)}<span data-cd="${r.endsAt}">${fmt.clock((new Date(r.endsAt) - Date.now()) / 1000)}</span></span></div>
-        <div class="auc-k mt12">${hi ? 'Highest discount' : 'No bids yet'}</div>
+        <div class="auc-k mt12">${hi ? 'Highest bid' : 'No bids yet'}</div>
         <div class="auc-amt">${hi ? rs(hi.discountP) : rs(g.rules.minDiscountP)}</div>
-        <div class="auc-who">${hi ? (leading ? `${icon('trophy', 15)} You are leading` : `by ${hm.ticket}${g.rules.bidVisibility === 'all' || admin ? ' · ' + esc(hm.name) : ''}`) : 'Starting discount'}</div>
+        <div class="auc-who">${hi ? (leading ? `${icon('trophy', 15)} You are leading${mine.length > 1 ? ' · ' + hm.ticket : ''}` : `by ${hm.ticket}${g.rules.bidVisibility === 'all' || admin ? ' · ' + esc(hm.name) : ''}`) : 'Starting bid'}</div>
         ${est ? `<div class="auc-split"><div><span>Winner gets</span><b>${rs(est.payoutNetP)}</b></div><div><span>Fee</span><b>${rs(est.feeP)}</b></div><div><span>Dividend each</span><b>${rs(est.perMemberP)}</b></div></div>` : ''}
       </div>
       <p class="tiny muted center mt8">Server time is final. Countdown on your phone is only a guide.${g.rules.extend ? ' A bid in the last 30 s extends by 30 s.' : ''}</p>
-      ${me ? (el.ok ? `<div class="card p mt12"><div class="row between"><div class="b">Your bid</div><span class="xs muted">Step ${rs(g.rules.incrementP)}</span></div>
+      ${pickTicket}${me ? (el.ok ? `<div class="card p mt12"><div class="row between"><div class="b">Your bid</div><span class="xs muted">Step ${rs(g.rules.incrementP)}</span></div>
           <div class="bid-ctl mt8"><button class="iconbtn" onclick="AR.adj('${p.id}',${r.n},-1)" ${AR.amt <= min ? 'disabled' : ''}>−</button><div class="bid-amt">${rs(AR.amt)}</div><button class="iconbtn" onclick="AR.adj('${p.id}',${r.n},1)" ${AR.amt >= g.rules.maxDiscountP ? 'disabled' : ''}>+</button></div>
           <div class="chips wrap mt8" style="justify-content:center">${[1, 2, 5].map(k => `<button class="chip" onclick="AR.amt=${Math.min(g.rules.maxDiscountP, min + (k - 1) * g.rules.incrementP)};App.refresh()">+${rs(k * g.rules.incrementP)}</button>`).join('')}<button class="chip" onclick="AR.amt=${g.rules.maxDiscountP};App.refresh()">Max</button></div>
           <div class="xs muted center mt8">You would receive ${rs(g.rules.poolP - AR.amt)} if this wins</div>
           <button id="bidBtn" class="btn btn-primary btn-block mt12" onclick="AR.bid('${p.id}',${r.n})">${icon('gavel', 18)}Place bid · ${rs(AR.amt)}</button></div>`
         : `<div class="mt12">${C.banner('grey', 'lock', 'You cannot bid in this round', el.reasons.map(esc).join('<br>'), Chit.arrears(g, me.id).length ? `<button class="btn btn-primary btn-sm mt8" onclick="ChitUI.paySheet('${p.id}','${me.id}')">Pay dues</button>` : '')}</div>`) : ''}
+      ${me ? noBid : ''}
       ${admin ? `<div class="demo-strip">${icon('sparkles', 15)}<span>Prototype: the server closes this auction at the deadline.</span><button onclick="ChitClock.closeNow('${p.id}',${r.n});App.refresh()">Close now</button></div>` : ''}
       ${C.sec(`Bids (${accepted.filter(b => b.status === 'ACCEPTED').length})`, `<span class="xs muted">${g.rules.bidVisibility === 'all' ? 'All bids visible' : 'Leading bid only'}</span>`)}
       <div class="px"><div class="group bid-feed">${feed.map((b, i) => { const m = Chit.mem(g, b.memberId); return `<div class="li ${b.status === 'REJECTED' ? 'rej' : ''} ${i === 0 && b.status === 'ACCEPTED' ? 'top' : ''}">${C.avatar(m.name, null, 30)}<span class="li-main"><span>${m.userId === 'me' ? 'You' : m.ticket}${(admin || g.rules.bidVisibility === 'all') && m.userId !== 'me' ? ' · ' + esc(m.name) : ''}</span><span class="xs muted">${b.status === 'REJECTED' ? 'Rejected: ' + esc(b.reason) : toDate(b.at).toLocaleTimeString('en-IN', { timeZone: TZ, hour12: true })}</span></span><b>${rs(b.discountP)}</b></div>`; }).join('') || '<p class="pad sm muted center">Waiting for the first bid…</p>'}</div></div>`
@@ -671,7 +819,7 @@ App.reg('chitAuction', {
         <div class="auc-who">${icon('clock', 15)} <span data-cd="${r.auctionAt}">${fmt.until(r.auctionAt)}</span></div>
       </div>
       ${Chit.active(g).length !== g.rules.members ? `<div class="info-card warn mt12">${icon('users', 16)}<div>${Chit.active(g).length} of ${g.rules.members} members have accepted the rules. The auction opens only when everyone has accepted.</div></div>` : ''}
-      ${me ? `<div class="mt12">${C.banner(el.ok ? 'green' : 'grey', el.ok ? 'check' : 'lock', el.ok ? 'You are eligible to bid' : 'Not eligible to bid', el.ok ? 'Keep the app open at the auction time, or come back when you get the notification.' : el.reasons.map(esc).join('<br>'))}</div>` : ''}
+      ${pickTicket}${me ? `<div class="mt12">${C.banner(el.ok ? 'green' : 'grey', el.ok ? 'check' : 'lock', el.ok ? 'You are eligible to bid' : 'Not eligible to bid', el.ok ? 'Keep the app open at the auction time, or come back when you get the notification.' : el.reasons.map(esc).join('<br>'))}</div>${noBid}` : ''}
       <div class="demo-strip">${icon('sparkles', 15)}<span>Prototype: open this auction now instead of waiting.</span><button onclick="if(ChitClock.openNow('${p.id}'))App.refresh()">Open now</button></div>`
       : `<div class="mt12">${C.banner(ROUND_ST[r.status].tone === 'grey' ? 'blue' : ROUND_ST[r.status].tone, ROUND_ST[r.status].ic, `Auction ${ROUND_ST[r.status].label.toLowerCase()}`, r.result ? `Highest bid ${rs(r.result.discountP)} by ${Chit.mem(g, r.result.winnerId).userId === 'me' ? 'you' : Chit.mem(g, r.result.winnerId).ticket}.` : '')}</div>
         <button class="btn btn-primary btn-block mt12" onclick="App.replace('chitRound',{id:'${p.id}',n:${r.n}})">View result & settlement</button>`;
@@ -679,7 +827,7 @@ App.reg('chitAuction', {
     return `${C.appbar(`Auction room`, { white: true, sub: `${esc(s.name)} · round ${r.n}` })}
       <div class="content pad" style="padding-top:12px">${room}
         ${C.sec('Rules for this auction')}<div class="px" style="padding:0"><div class="card p">
-          ${C.rows([['Monthly pool', rs(g.rules.poolP)], ['Discount range', `${rs(g.rules.minDiscountP)} – ${rs(g.rules.maxDiscountP)}`], ['Minimum increment', rs(g.rules.incrementP)], ['Tie-break', g.rules.tieBreak === 'first_bid' ? 'First bid at the highest amount' : 'Draw lots'], ['Fee this round', ChitEngine.feeApplies(g.rules, r.n) ? ChitEngine.feeLabel(g.rules, rs) : 'Not charged'], ['Eligibility', g.rules.eligibility === 'paid_up' ? 'Paid up · accepted rules' : 'Any active member']])}
+          ${C.rows([['Monthly pool', rs(g.rules.poolP)], ['Starting bid', rs(g.rules.minDiscountP)], ['Maximum bid', rs(g.rules.maxDiscountP)], ['Each new bid higher by', rs(g.rules.incrementP)], ['Tie-break', g.rules.tieBreak === 'first_bid' ? 'First bid at the highest amount' : 'Draw lots'], ['Fee this round', ChitEngine.feeApplies(g.rules, r.n) ? ChitEngine.feeLabel(g.rules, rs) : 'Not charged'], ['Eligibility', g.rules.eligibility === 'paid_up' ? 'Paid up · accepted rules' : 'Any active member']])}
           <button class="link mt12" onclick="App.go('chitRules',{id:'${p.id}'})">Read full scheme rules</button></div></div>
       </div>`;
   }
@@ -695,11 +843,11 @@ const ChitScreens = {
     return `<div class="mini-grid">
         <div class="mini"><div class="l">Outstanding</div><div class="v ${st.balP > 0 ? 'red' : 'green'}">${rs(Math.max(0, st.balP))}</div></div>
         <div class="mini"><div class="l">Paid so far</div><div class="v">${rs(st.rows.filter(e => e.type === 'CONTRIBUTION_RECEIVED').reduce((a, e) => a + e.creditP, 0))}</div></div>
-        <div class="mini"><div class="l">Dividends credited</div><div class="v green">${rs(st.rows.filter(e => e.type === 'DIVIDEND_CREDIT').reduce((a, e) => a + e.creditP, 0))}</div></div>
+        <div class="mini"><div class="l">${Chit.isFixed(g) ? 'Chits held' : 'Dividends credited'}</div><div class="v green">${Chit.isFixed(g) ? Chit.tickets(g, m).length : rs(st.rows.filter(e => e.type === 'DIVIDEND_CREDIT').reduce((a, e) => a + e.creditP, 0))}</div></div>
         <div class="mini"><div class="l">Payout received</div><div class="v">${rs(st.rows.filter(e => e.type === 'WINNER_PAYOUT').reduce((a, e) => a + e.infoP, 0))}</div></div></div>
       ${ar.length ? `<button class="btn btn-primary btn-block mt12" onclick="ChitUI.paySheet('${id}','${m.id}')">${icon('wallet', 18)}${admin && m.userId !== 'me' ? 'Record payment' : 'Pay'} ${rs(ar.reduce((a, o) => a + o.balP, 0))}</button>` : ''}
       <div class="group-label">By round</div>
-      <div class="group">${settled.map(r => { const o = Chit.oblig(g, m.id, r.n); return `<div class="li"><span class="rnd done">${r.n}</span><span class="li-main"><span>Net ${rs(o.netP)}</span><span class="xs muted">${rs(o.dueP)} − ${rs(o.creditP)} dividend · paid ${rs(o.paidP)}</span></span>${ChitUI.oblBadge(o)}</div>`; }).join('') || '<p class="pad sm muted">No settled rounds yet.</p>'}</div>
+      <div class="group">${settled.map(r => { const o = Chit.oblig(g, m.id, r.n); return `<div class="li"><span class="rnd done">${r.n}</span><span class="li-main"><span>${Chit.isFixed(g) ? rs(o.dueP) : 'Net ' + rs(o.netP)}</span><span class="xs muted">${Chit.isFixed(g) ? '' : `${rs(o.dueP)} − ${rs(o.creditP)} dividend · `}paid ${rs(o.paidP)}</span></span>${ChitUI.oblBadge(o)}</div>`; }).join('') || '<p class="pad sm muted">No settled rounds yet.</p>'}</div>
       <div class="group-label">Ledger entries</div>
       <div class="group">${st.rows.slice().reverse().map(e => { const [l, ic] = L[e.type] || [e.type, 'file']; const amt = e.debitP ? `<b class="red">+${rs(e.debitP)}</b>` : e.creditP ? `<b class="green">−${rs(e.creditP)}</b>` : `<span class="muted">${rs(e.infoP)}</span>`; return `<div class="txn"><span class="txn-ic ${e.debitP ? 'out' : e.creditP ? 'in' : 'pay'}">${icon(ic, 16)}</span><div class="grow"><div class="b sm">${l} · R${e.round}</div><div class="tiny muted">${fmt.dt(e.at)}${e.ref ? ' · ' + esc(e.ref) : ''}</div></div><div style="text-align:right">${amt}<div class="tiny muted">${e.balP != null && (e.debitP || e.creditP) ? 'Bal ' + rs(e.balP) : 'Not in balance'}</div></div></div>`; }).join('')}</div>
       <p class="tiny muted mt8">+ adds to what you owe, − reduces it. Pending or unverified payments and payouts are listed but do not change the balance.</p>`;
@@ -736,8 +884,8 @@ App.reg('chitRules', {
         <div class="card p mt12"><div class="row between"><div><div class="xs muted">Published version</div><div class="h2">Rules v${v.v}</div></div>${C.badge('Locked', 'navy')}</div>
           <div class="xs muted mt4">Published ${fmt.dt(v.publishedAt)} by ${esc(actorName(v.by))}${me && me.acceptedVersion ? ` · you accepted ${fmt.date(me.acceptedAt)}` : ''}</div></div>
         <div class="group-label">Scheme rules</div><div class="card p">${ChitUI.rulesKv(g.rules)}</div>
-        <div class="group-label">Payout formula</div><div class="card p"><p class="sm">Winner receives <b>monthly gross pool − winning discount</b>${g.rules.feeSource === 'separate' ? ' − company fee (itemised)' : ''}. ${g.rules.feeSource === 'discount' ? 'The company fee is taken from the discount, and the rest is split as dividends.' : 'The whole discount is split as dividends.'} Payout is not paid until it is approved and the bank confirms the transfer.</p></div>
-        <div class="group-label">Payments & defaults</div><div class="card p"><p class="sm">Contribution is due ${g.rules.dueDays} days after each auction. ${g.rules.creditDividend ? 'The round\'s dividend is credited against it.' : ''} Cash counts only after the organiser records it${g.rules.cashVerify ? ' and a second check verifies it' : ''}. Digital payments count only after bank confirmation. Members with unpaid dues cannot bid.</p></div>
+        <div class="group-label">Payout formula</div><div class="card p">${Chit.isFixed(g) ? `<p class="sm">Each month one chit receives <b>chit amount − commission</b> (${rs(g.rules.poolP)} − ${rs(ChitEngine.fee(g.rules, 1, 0))} = ${rs(g.rules.poolP - ChitEngine.fee(g.rules, 1, 0))}). There is no bidding, no discount and no dividend. ${g.rules.turnOrder === 'lots' ? 'The chit is drawn by lots among chits that have not received the money; every draw is saved in the round history.' : 'The order of months is fixed before the chit starts.'} Payout is not paid until it is approved and the bank confirms the transfer.</p>` : `<p class="sm">Winner receives <b>monthly gross pool − winning discount</b>${g.rules.feeSource === 'separate' ? ' − company fee (itemised)' : ''}. ${g.rules.feeSource === 'discount' ? 'The company fee is taken from the discount, and the rest is split as dividends.' : 'The whole discount is split as dividends.'} Payout is not paid until it is approved and the bank confirms the transfer.</p>`}</div>
+        <div class="group-label">Payments & defaults</div><div class="card p"><p class="sm">${Chit.isFixed(g) ? `Pay within ${g.rules.dueDays} days of each money day. Each chit is paid separately.` : `Contribution is due ${g.rules.dueDays} days after each auction. ${g.rules.creditDividend ? "The round's dividend is credited against it." : ''}`} Cash counts only after the organiser records it${g.rules.cashVerify ? ' and a second check verifies it' : ''}. Digital payments count only after bank confirmation.${Chit.isFixed(g) ? '' : ' Members with unpaid dues cannot bid.'}</p></div>
         <div class="group-label">Disputes & corrections</div><div class="card p"><p class="sm">Finalised results and payments are never edited. Corrections are added as reversals or adjustments with a reason, and every change is in the audit log.</p></div>
         <div class="info-card warn mt12">${icon('scale', 16)}<div>This agreement text is a prototype placeholder. The real agreement must be reviewed under the Chit Funds Act, 1982 and applicable state rules.</div></div>
         <div class="group-label">Version history</div><div class="group">${g.ruleVersions.slice().reverse().map(x => `<div class="li"><span class="li-ic">${icon('file', 17)}</span><span class="li-main"><span>v${x.v} · ${esc(x.reason)}</span><span class="xs muted">${fmt.dt(x.publishedAt)} · ${esc(actorName(x.by))}</span></span></div>`).join('')}</div>

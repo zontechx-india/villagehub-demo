@@ -248,6 +248,8 @@ App.reg('settings', {
           ${T('nSms', 'SMS for important updates', 'OTP and payment confirmations')}
           ${T('lockPrivacy', 'Hide amounts on lock screen', 'Recommended')}
         </div>
+        <div class="group-label">Display</div>
+        <div class="group"><div class="li"><span class="li-ic">${icon('eye', 18)}</span><span class="li-main"><span>Large text</span><span class="xs muted">Bigger letters and buttons, easier to read</span></span>${C.toggle(s.bigText !== false, 'BigText.set(!(S().settings.bigText !== false))')}</div></div>
         <div class="group-label">General</div>
         <div class="group">
           <div class="li"><span class="li-ic">${icon('globe', 18)}</span><span class="li-main"><span>Language</span></span><select class="select" style="width:140px;height:40px;font-size:13px" onchange="I18n.set(this.value)"><option value="en" ${I18n.ta ? '' : 'selected'} data-raw>English</option><option value="ta" ${I18n.ta ? 'selected' : ''}>தமிழ்</option></select></div>

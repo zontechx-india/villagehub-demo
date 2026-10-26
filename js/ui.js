@@ -77,6 +77,12 @@ const Platform = {
   }
 };
 
+/* ---------- Large text: bigger fonts and touch targets (Settings → Large text, on by default) ---------- */
+const BigText = {
+  apply() { const el = document.getElementById('phone'), on = !S() || S().settings.bigText !== false; if (el) el.classList.toggle('big', on); const c = document.getElementById('simBig'); if (c) c.checked = on; },
+  set(on) { S().settings.bigText = on; Store.save(); BigText.apply(); if (App.top()) App.refresh(); }
+};
+
 /* ---------- Bottom navigation and bottom sheet design — from ServiDEX ---------- */
 const CHROME_STYLES = {
   nav: { def: 'liquid', key: 'villagehub_nav_style', label: 'Bottom navigation', opts: [['standard', 'Standard'], ['glass', 'Floating glass'], ['liquid', 'Liquid glass']], cls: { glass: 'nav-float', liquid: 'nav-float nav-liquid' } },

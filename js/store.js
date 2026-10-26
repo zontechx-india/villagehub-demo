@@ -3,7 +3,7 @@
  * own records under `mod[moduleKey][serviceId]`. The core never reads module records directly. */
 
 const STORE_KEY = 'villagehub_proto_v1';
-const STATE_VERSION = 3;
+const STATE_VERSION = 4; // 4: fixed chits, additional chits, large text
 
 function freshState() {
   return {
@@ -15,7 +15,7 @@ function freshState() {
     mod: {},          // module-specific records keyed by module, then service id
     notifications: [],
     audit: [],        // append-only: { id, svcId, actor, action, entity, before, after, reason, at }
-    settings: { nAuction: true, nPayment: true, nCollection: true, nSms: true, lockPrivacy: true, lang: 'English' },
+    settings: { nAuction: true, nPayment: true, nCollection: true, nSms: true, lockPrivacy: true, lang: 'English', bigText: true },
     sim: { offline: false, noBids: false, payoutFail: false, upiFail: false },
     seq: 1000
   };

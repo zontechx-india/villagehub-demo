@@ -582,3 +582,96 @@ const I18n = {
     UI.sheet(`<div class="sheet-title">${this.ta ? 'மொழி' : 'Language'}</div><div class="mt8">${[['en', 'English', 'English'], ['ta', 'தமிழ்', 'Tamil']].map(([k, l, s]) => `<button class="opt ${this.lang === k ? 'on' : ''}" onclick="UI.close(true);I18n.set('${k}')"><span class="radio"></span><span class="grow"><span class="b">${l}</span><span class="xs muted" data-raw>${s}</span></span></button>`).join('')}</div>`);
   }
 };
+
+/* ---------- Fixed monthly chit, additional chits, large text (client notes, Oct 2026) ----------
+ * Village words the client used: மாதச் சீட்டு (fixed monthly chit), ஏலச் சீட்டு (auction chit), தங்கச் சீட்டு
+ * (gold chit), கமிஷன் (commission), ஆரம்ப ஏலம் (starting bid), குலுக்கல் (draw of lots). */
+Object.assign(TA, {
+  'Chit Fund': 'சீட்டு நிதி', 'Run a fixed monthly chit or an auction chit: members, monthly turns, commission, payouts and full history.': 'மாதச் சீட்டு அல்லது ஏலச் சீட்டு நடத்துங்கள்: உறுப்பினர்கள், மாத முறை, கமிஷன், பணம் வழங்கல், முழு வரலாறு.',
+  'What type of chit?': 'எந்த வகைச் சீட்டு?', 'Pick one. You will see every rule before you publish.': 'ஒன்றைத் தேர்ந்தெடுங்கள். வெளியிடும் முன் எல்லா விதிகளையும் பார்க்கலாம்.',
+  'Fixed monthly chit': 'மாதச் சீட்டு', 'Auction chit': 'ஏலச் சீட்டு', 'Gold chit': 'தங்கச் சீட்டு', 'Easiest': 'எளிதானது', 'Fixed chit': 'மாதச் சீட்டு',
+  'No bidding. Everyone pays the same amount every month. Each month one member gets the money, in a fixed order or by lots.': 'ஏலம் இல்லை. எல்லோரும் ஒவ்வொரு மாதமும் ஒரே தொகை செலுத்துவார்கள். ஒவ்வொரு மாதமும் ஒருவருக்குப் பணம் — நிலையான வரிசையில் அல்லது குலுக்கலில்.',
+  'Members bid each month. The highest bid takes the money early, and the bid amount is shared with everyone.': 'ஒவ்வொரு மாதமும் ஏலம். அதிக ஏலம் கேட்டவர் முன்கூட்டியே பணம் பெறுவார்; ஏலத் தொகை எல்லோருக்கும் பகிரப்படும்.',
+  'Save every month and get gold at the end.': 'ஒவ்வொரு மாதமும் சேமித்து, முடிவில் தங்கம் பெறுங்கள்.',
+  'Chit type': 'சீட்டு வகை', 'Change to auction': 'ஏலச் சீட்டாக மாற்று', 'Change to fixed': 'மாதச் சீட்டாக மாற்று', 'Company name': 'நிறுவனப் பெயர்',
+  'Shown on the chit and on receipts. Saved for your next chit.': 'சீட்டிலும் ரசீதிலும் காட்டப்படும். அடுத்த சீட்டுக்கும் சேமிக்கப்படும்.',
+  'Photo': 'புகைப்படம்', 'Add a photo': 'புகைப்படம் சேர்', 'Change photo': 'புகைப்படத்தை மாற்று', 'Remove photo': 'புகைப்படத்தை நீக்கு', 'Company logo or group photo': 'நிறுவன லோகோ அல்லது குழுப் புகைப்படம்',
+  'Purpose, where members meet': 'நோக்கம், உறுப்பினர்கள் சந்திக்கும் இடம்', 'Name, company, photo': 'பெயர், நிறுவனம், புகைப்படம்', 'Amount, chits, months': 'தொகை, சீட்டுகள், மாதங்கள்',
+  'Amount & chits': 'தொகை & சீட்டுகள்', 'Chit amount (collected every month)': 'சீட்டுத் தொகை (மாதந்தோறும் வசூல்)', 'Chit amount': 'சீட்டுத் தொகை', 'Number of chits': 'சீட்டுகளின் எண்ணிக்கை', 'Months': 'மாதங்கள்',
+  'Months = number of chits, so every chit gets the money once.': 'மாதங்கள் = சீட்டுகளின் எண்ணிக்கை. அதனால் ஒவ்வொரு சீட்டும் ஒருமுறை பணம் பெறும்.',
+  'Each chit pays every month': 'ஒவ்வொரு சீட்டும் மாதந்தோறும் செலுத்துவது', 'Choose an amount that divides evenly by the number of chits': 'சீட்டுகளின் எண்ணிக்கையால் சரியாக வகுபடும் தொகையைத் தேர்ந்தெடுங்கள்',
+  'Can one person take more than one chit?': 'ஒருவர் ஒன்றுக்கு மேற்பட்ட சீட்டு எடுக்கலாமா?', 'No': 'இல்லை', '1 chit each': 'ஒருவருக்கு 1 சீட்டு', 'Up to 2': '2 வரை', 'Up to 3': '3 வரை', 'chits': 'சீட்டுகள்', 'chit': 'சீட்டு',
+  'Additional chits: each chit is paid separately and gets its own month.': 'கூடுதல் சீட்டு: ஒவ்வொரு சீட்டும் தனியாகச் செலுத்தப்படும்; ஒவ்வொன்றுக்கும் தனி மாதம்.',
+  'Every person holds exactly one chit.': 'ஒவ்வொருவருக்கும் ஒரு சீட்டு மட்டும்.', 'Pay within': 'செலுத்தும் காலம்', 'days after each money day': 'நாட்கள், ஒவ்வொரு பணம் வழங்கும் நாளுக்கும் பின்',
+  'Enter the total value instead': 'மொத்த மதிப்பாக உள்ளிடு', 'Money day & turn': 'பணம் வழங்கும் நாள் & முறை', 'First money day': 'முதல் பணம் வழங்கும் நாள்', 'Money day': 'பணம் வழங்கும் நாள்', 'Money days': 'பணம் வழங்கும் நாட்கள்',
+  'Same date every month. You can move one month for a festival later.': 'ஒவ்வொரு மாதமும் அதே தேதி. திருவிழாவுக்காக ஒரு மாதத்தைப் பின்னர் மாற்றலாம்.',
+  'Who gets the money each month?': 'ஒவ்வொரு மாதமும் பணம் யாருக்கு?', 'Fixed order': 'நிலையான வரிசை', 'Draw lots each month': 'ஒவ்வொரு மாதமும் குலுக்கல்', 'Draw lots': 'குலுக்கல்',
+  'You set the order once (month 1, month 2 …). Everyone knows their month from the start.': 'வரிசையை ஒருமுறை அமைக்கவும் (மாதம் 1, மாதம் 2 …). எல்லோருக்கும் தங்கள் மாதம் தொடக்கத்திலேயே தெரியும்.',
+  'Every month the app draws one chit from those who have not got the money yet. The draw is saved in history.': 'இன்னும் பணம் பெறாத சீட்டுகளிலிருந்து ஒவ்வொரு மாதமும் செயலி ஒன்றைக் குலுக்கி எடுக்கும். குலுக்கல் வரலாற்றில் சேமிக்கப்படும்.',
+  'No bidding and no discount. The member gets the chit amount minus the commission.': 'ஏலமும் தள்ளுபடியும் இல்லை. உறுப்பினர் சீட்டுத் தொகையில் கமிஷன் கழித்துப் பெறுவார்.',
+  'Starting bid': 'ஆரம்ப ஏலம்', 'Maximum bid': 'அதிகபட்ச ஏலம்', 'Highest bid': 'அதிகபட்ச ஏலம்', 'Each new bid must be higher by': 'ஒவ்வொரு புதிய ஏலமும் இவ்வளவு அதிகமாக இருக்க வேண்டும்', 'Each new bid higher by': 'புதிய ஏல உயர்வு',
+  "Don't want to bid?": 'ஏலம் கேட்க விருப்பமில்லையா?',
+  'A member can simply wait. When only one member is left, that member gets the full amount in the last month, with no discount and no auction.': 'காத்திருக்கலாம். ஒருவர் மட்டும் மீதம் இருக்கும்போது, அவர் கடைசி மாதத்தில் தள்ளுபடியும் ஏலமும் இல்லாமல் முழுத் தொகையையும் பெறுவார்.',
+  'That is fine. Just wait. The last member gets the full amount in the final month, with no discount.': 'பரவாயில்லை, காத்திருங்கள். கடைசியில் மீதமுள்ளவர் கடைசி மாதத்தில் தள்ளுபடி இல்லாமல் முழுத் தொகையையும் பெறுவார்.',
+  'Commission': 'கமிஷன்', 'Commission & dividend': 'கமிஷன் & ஈவுத்தொகை', 'How is the commission taken?': 'கமிஷன் எப்படி?', '% of the chit amount': 'சீட்டுத் தொகையின் %', 'No commission': 'கமிஷன் இல்லை',
+  'The same amount every month': 'ஒவ்வொரு மாதமும் அதே தொகை', 'The organiser takes nothing': 'அமைப்பாளர் எதுவும் எடுப்பதில்லை', 'Commission amount': 'கமிஷன் தொகை', 'Commission %': 'கமிஷன் %',
+  'of the chit amount': 'சீட்டுத் தொகையில்', 'Advanced commission rules': 'கூடுதல் கமிஷன் விதிகள்',
+  'Use the arrows to set who gets the money in which month. Tap a date to move it for a holiday.': 'எந்த மாதம் யாருக்குப் பணம் என்பதை அம்புகளால் அமைக்கவும். விடுமுறைக்காக மாற்ற தேதியைத் தட்டவும்.',
+  'Generated from the first date. Tap a round to move it for a holiday or village meeting.': 'முதல் தேதியிலிருந்து உருவானது. விடுமுறை அல்லது கிராமக் கூட்டத்திற்காக மாற்ற ஒரு சுற்றைத் தட்டவும்.',
+  'Decided by lots on the day': 'அன்றைய குலுக்கலில் முடிவாகும்', 'Move up': 'மேலே நகர்த்து', 'Move down': 'கீழே நகர்த்து',
+  'Members with unpaid dues are followed up before their month. Corrections are recorded as reversals or adjustments with a reason. Members can raise a dispute from any round. Refund and exit terms follow the signed agreement.': 'நிலுவை உள்ளவர்கள் தங்கள் மாதத்திற்கு முன் தொடர்பு கொள்ளப்படுவார்கள். திருத்தங்கள் காரணத்துடன் திரும்பப்பெறுதல்/சரிசெய்தலாகப் பதிவாகும். எந்தச் சுற்றிலும் புகார் தெரிவிக்கலாம். திருப்பியளிப்பு, வெளியேறும் விதிகள் கையொப்பமிட்ட ஒப்பந்தப்படி.',
+  'Member receives': 'உறுப்பினர் பெறுவது', 'Every chit pays this month': 'இந்த மாதம் ஒவ்வொரு சீட்டும் செலுத்துவது', 'Same amount every month': 'ஒவ்வொரு மாதமும் அதே தொகை',
+  'Last round': 'கடைசிச் சுற்று', 'no auction, no discount': 'ஏலம், தள்ளுபடி இல்லை', 'Pool = payout + commission': 'தொகை = வழங்கல் + கமிஷன்',
+  'no auction': 'ஏலம் இல்லை', 'Fixed order, decided at the start': 'தொடக்கத்திலேயே முடிவான நிலையான வரிசை', 'each chit gets it once': 'ஒவ்வொரு சீட்டும் ஒருமுறை பெறும்',
+  'taken from the amount paid out': 'வழங்கும் தொகையிலிருந்து கழிக்கப்படும்', 'Additional chits': 'கூடுதல் சீட்டுகள்', 'each chit pays separately': 'ஒவ்வொரு சீட்டும் தனியாகச் செலுத்தும்', 'One chit per person': 'ஒருவருக்கு ஒரு சீட்டு',
+  'Payment': 'செலுத்தல்', 'Who gets the money': 'பணம் யாருக்கு', 'Not bidding': 'ஏலம் கேட்காதவர்கள்', 'Members who never bid wait; the last one gets the full amount with no discount': 'ஏலம் கேட்காதவர்கள் காத்திருப்பார்கள்; கடைசியில் மீதமுள்ளவர் தள்ளுபடி இல்லாமல் முழுத் தொகை பெறுவார்',
+  'How many chits for this person?': 'இவருக்கு எத்தனை சீட்டு?', 'Each chit is paid separately and gets its own month. To add a chit for someone already in the group, use the same mobile number.': 'ஒவ்வொரு சீட்டும் தனியாகச் செலுத்தப்படும், தனி மாதம் பெறும். ஏற்கனவே குழுவில் உள்ளவருக்குச் சீட்டு சேர்க்க அதே கைபேசி எண்ணைப் பயன்படுத்தவும்.',
+  'Goes to you': 'உங்களுக்கு', 'Your chit': 'உங்கள் சீட்டு', 'Your month is decided by lots': 'உங்கள் மாதம் குலுக்கலில் முடிவாகும்', 'Paid up': 'நிலுவை இல்லை', 'Received': 'பெற்றது',
+  'Got the money': 'பணம் பெற்றவர்', 'Paid out': 'வழங்கியது', 'Payouts to approve': 'அங்கீகரிக்க வேண்டிய வழங்கல்கள்', 'Chits held': 'வைத்திருக்கும் சீட்டுகள்',
+  'Lots are drawn on the day among chits that have not got the money yet.': 'இன்னும் பணம் பெறாத சீட்டுகளிடையே அன்று குலுக்கல் நடக்கும்.', 'Prototype: the server decides this turn on the money day.': 'முன்மாதிரி: பணம் வழங்கும் நாளில் சர்வர் இந்த முறையை முடிவு செய்யும்.',
+  'Draw lots now': 'இப்போது குலுக்கு', 'Do it now': 'இப்போது செய்', 'By fixed order': 'நிலையான வரிசைப்படி', 'By lots': 'குலுக்கல் மூலம்', 'Last member': 'கடைசி உறுப்பினர்',
+  'Turn by fixed order': 'நிலையான வரிசைப்படி முறை', 'Lots drawn': 'குலுக்கல் நடந்தது', 'no auction needed': 'ஏலம் தேவையில்லை', 'Bid with which chit?': 'எந்தச் சீட்டில் ஏலம் கேட்க?', 'Can bid': 'ஏலம் கேட்கலாம்', 'Cannot bid': 'ஏலம் கேட்க முடியாது',
+  'Finish the previous round first (approve its result)': 'முதலில் முந்தைய சுற்றை முடிக்கவும் (முடிவை அங்கீகரிக்கவும்)', 'Waiting': 'காத்திருப்பு', 'Got money': 'பணம் பெற்றது',
+  'Display': 'திரை', 'Large text': 'பெரிய எழுத்து', 'Bigger letters and buttons, easier to read': 'பெரிய எழுத்துகள், பெரிய பொத்தான்கள் — படிக்க எளிது',
+  'A fixed chit has no discount. Use a % of the chit amount, a fixed amount, or no commission.': 'மாதச் சீட்டில் தள்ளுபடி இல்லை. சீட்டுத் தொகையின் %, நிலையான தொகை அல்லது கமிஷன் இல்லை என்பதைப் பயன்படுத்தவும்.',
+  'The commission must be less than the chit amount.': 'கமிஷன் சீட்டுத் தொகையை விடக் குறைவாக இருக்க வேண்டும்.', 'The commission is larger than the chit amount.': 'கமிஷன் சீட்டுத் தொகையை விட அதிகம்.'
+});
+// New patterns go first so the older, broader patterns (e.g. "Round n · …", "by …") cannot swallow them.
+TA_P.unshift(
+  [new RegExp(`^(\\d+) chits × ${A_}$`), (n, a) => `${n} சீட்டுகள் × ${a}`], [/^Not charged in round (\d+)$/, n => `சுற்று ${n} இல் வசூலிக்கப்படாது`],
+  [new RegExp(`^${A_} every month$`), a => `ஒவ்வொரு மாதமும் ${a}`], [/^(\d+) months$/, n => `${n} மாதங்கள்`], [/^first money day (.+) at (\S+) IST$/, (d, t) => `முதல் பணம் வழங்கும் நாள் ${d}, ${t} IST`],
+  [/^([\d.]+)% of the chit amount$/, p => `சீட்டுத் தொகையின் ${p}%`], [/^One person can take up to (\d+) chits$/, n => `ஒருவர் ${n} சீட்டுகள் வரை எடுக்கலாம்`],
+  [/^Pay within (\d+) days of each money day$/, n => `ஒவ்வொரு பணம் வழங்கும் நாளிலிருந்தும் ${n} நாட்களுக்குள் செலுத்தவும்`],
+  [/^Pay within (\d+) days of each money day\. Each chit is paid separately\.(.*)$/, (n, rest) => `ஒவ்வொரு பணம் வழங்கும் நாளிலிருந்தும் ${n} நாட்களுக்குள் செலுத்தவும். ஒவ்வொரு சீட்டும் தனியாகச் செலுத்தப்படும். அமைப்பாளர் பதிவு செய்த பின்${/second check/.test(rest) ? ', இரண்டாம் சரிபார்ப்புக்குப் பின்' : ''} ரொக்கம் கணக்கில் வரும். டிஜிட்டல் செலுத்தல்கள் வங்கி உறுதிசெய்த பின்னரே.`],
+  [new RegExp(`^Starting bid ${A_}$`), a => `ஆரம்ப ஏலம் ${a}`], [new RegExp(`^maximum ${A_}$`), a => `அதிகபட்சம் ${a}`],
+  [/^This person already has (\d+) chits?\. One person can hold at most (\d+) in this group\.$/, (a, b) => `இவருக்கு ஏற்கனவே ${a} சீட்டு உள்ளது. இந்தக் குழுவில் ஒருவர் அதிகபட்சம் ${b} சீட்டு வைத்திருக்கலாம்.`],
+  [/^One person can hold at most (\d+) chits? in this group\.$/, n => `இந்தக் குழுவில் ஒருவர் அதிகபட்சம் ${n} சீட்டு வைத்திருக்கலாம்.`], [/^Only (\d+) tickets? (?:are|is) left\.$/, n => `${n} சீட்டு மட்டுமே மீதம்.`],
+  [/^(\d+) chits added for (.+)$/, (n, w) => `${w} க்கு ${n} சீட்டுகள் சேர்க்கப்பட்டன`],
+  [/^Goes to (M\d+)$/, t => `${t} க்கு`], [/^Goes to you · (M\d+)$/, t => `உங்களுக்கு · ${t}`], [/^Goes to (M\d+) · (.+)$/, (t, n) => `${t} · ${n} க்கு`],
+  [/^Your chits \((\d+)\)$/, n => `உங்கள் சீட்டுகள் (${n})`], [/^Got the money in round (\d+)$/, n => `சுற்று ${n} இல் பணம் பெற்றது`], [/^Your month: round (\d+)$/, n => `உங்கள் மாதம்: சுற்று ${n}`],
+  [/^Total due for your (\d+) chits:$/, n => `உங்கள் ${n} சீட்டுகளுக்கு மொத்த நிலுவை:`], [/^You · (M\d+)$/, t => `நீங்கள் · ${t}`], [/^You are leading · (M\d+)$/, t => `நீங்கள் முன்னணியில் · ${t}`],
+  [/^No auction\. Each month the next chit in the agreed order gets the money\. Commission: (.+)\.$/, c => `ஏலம் இல்லை. ஒவ்வொரு மாதமும் ஒப்புக்கொண்ட வரிசையில் அடுத்த சீட்டுக்குப் பணம். கமிஷன்: ${T(c)}.`],
+  [/^No auction\. Each month lots are drawn among chits that have not got the money\. Commission: (.+)\.$/, c => `ஏலம் இல்லை. பணம் பெறாத சீட்டுகளிடையே ஒவ்வொரு மாதமும் குலுக்கல். கமிஷன்: ${T(c)}.`],
+  [/^Chit (\d+) of (\d+)$/, (a, b) => `சீட்டு ${a} / ${b}`], [/^Got R(\d+)$/, n => `சு${n} பெற்றார்`], [/^Money day (.+)$/, r => `பணம் வழங்கும் நாள் ${T(r)}`],
+  [/^This month the chit goes to (.+)\. No auction\.$/, w => `இந்த மாதம் சீட்டு: ${w.replace(/^you /, 'நீங்கள் ')} — ஏலம் இல்லை.`],
+  [/^Only (M\d+) is left, so there is no auction\. They get the full amount\.$/, t => `${t} மட்டும் மீதம்; ஏலம் இல்லை. முழுத் தொகையும் அவருக்கு.`],
+  [new RegExp(`^(M\\d+) gets ${A_}$`), (t, a) => `${t} பெறுவது ${a}`], [/^drawn from (\d+) tickets$/, n => `${n} சீட்டுகளிலிருந்து குலுக்கல்`],
+  [/^Your round (\d+) · (M\d+)$/, (n, t) => `உங்கள் சுற்று ${n} · ${t}`], [/^Your turn: round (\d+) money is yours$/, n => `உங்கள் முறை: சுற்று ${n} பணம் உங்களுக்கு`],
+  [/^Round (\d+): (M\d+) gets the money$/, (n, t) => `சுற்று ${n}: ${t} பணம் பெறுகிறார்`], [new RegExp(`^(M\\d+) receives ${A_}\\.$`), (t, a) => `${t} ${a} பெறுகிறார்.`],
+  [new RegExp(`^${A_}\\. Review and approve\\.$`), a => `${a}. மதிப்பாய்வு செய்து அங்கீகரிக்கவும்.`], [/^Round (\d+) turn decided$/, n => `சுற்று ${n} முறை முடிவானது`], [/^Round (\d+) money day$/, n => `சுற்று ${n} பணம் வழங்கும் நாள்`],
+  [/^(\d+)\/(\d+) chits$/, (a, b) => `${a}/${b} சீட்டுகள்`],
+  [/^In a fixed chit every ticket gets the money once, so months must equal tickets \((\d+)\)\.$/, n => `மாதச் சீட்டில் ஒவ்வொரு சீட்டும் ஒருமுறை பணம் பெறும்; அதனால் மாதங்கள் சீட்டுகளுக்குச் சமமாக (${n}) இருக்க வேண்டும்.`],
+  [/^One person can hold 1 to (\d+) chits\.$/, n => `ஒருவர் 1 முதல் ${n} சீட்டுகள் வைத்திருக்கலாம்.`],
+  [new RegExp(`^\\(${A_} − ${A_} = ${A_}\\)\\. There is no bidding, no discount and no dividend\\. (The chit is drawn by lots|The order of months is fixed).*$`), (a, b, c, k) => `(${a} − ${b} = ${c}). ஏலம், தள்ளுபடி, ஈவுத்தொகை இல்லை. ${/lots/.test(k) ? 'பணம் பெறாத சீட்டுகளிடையே குலுக்கல்; ஒவ்வொரு குலுக்கலும் வரலாற்றில் சேமிக்கப்படும்.' : 'மாதங்களின் வரிசை சீட்டு தொடங்கும் முன்பே முடிவாகும்.'} அங்கீகரித்து வங்கி உறுதிசெய்யும் வரை வழங்கல் செலுத்தப்படாது.`],
+  [/^Each month one chit receives$/, () => 'ஒவ்வொரு மாதமும் ஒரு சீட்டு பெறுவது'], [/^chit amount − commission$/, () => 'சீட்டுத் தொகை − கமிஷன்']
+);
+Object.assign(TA, {
+  'Add members, adjust round dates': 'உறுப்பினர்களைச் சேர், சுற்றுத் தேதிகளை மாற்று', 'Advanced auction rules': 'கூடுதல் ஏல விதிகள்',
+  'Overdue members cannot bid until paid. Corrections are recorded as reversals or adjustments with a reason. Members can raise a dispute from any round. Refund and exit terms follow the signed agreement.': 'நிலுவை உள்ள உறுப்பினர்கள் செலுத்தும் வரை ஏலம் கேட்க முடியாது. திருத்தங்கள் காரணத்துடன் திரும்பப்பெறுதல்/சரிசெய்தலாகப் பதிவாகும். எந்தச் சுற்றிலும் புகார் தெரிவிக்கலாம். திருப்பியளிப்பு, வெளியேறும் விதிகள் கையொப்பமிட்ட ஒப்பந்தப்படி.'
+});
+TA_P.unshift(
+  [new RegExp(`^${A_} × (\d+) months = ${A_} in total$`), (a, n, b) => `${a} × ${n} மாதங்கள் = மொத்தம் ${b}`], [/^(\d+) chits$/, n => `${n} சீட்டுகள்`],
+  [new RegExp(`^${A_} each$`), a => `ஒவ்வொன்றும் ${a}`], [/^Commission (.+)$/, c => `கமிஷன் ${T(c)}`], [/^(\d+)\/(\d+) added$/, (a, b) => `${a}/${b} சேர்க்கப்பட்டனர்`],
+  [/^(\d+) round dates$/, n => `${n} சுற்றுத் தேதிகள்`], [new RegExp(`^${A_} – ${A_} discount$`), (a, b) => `${a} – ${b} தள்ளுபடி`], [/^dividend (.+)$/, d => `ஈவுத்தொகை: ${T(d)}`]
+);
+TA['The chit starts only when every ticket is filled and accepted.'] = 'எல்லாச் சீட்டுகளும் நிரம்பி, ஏற்றுக்கொண்ட பின்னரே சீட்டு தொடங்கும்.';

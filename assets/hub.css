@@ -214,3 +214,83 @@ body, .phone.ui-native { font-family: 'Inter', 'Noto Sans Tamil', system-ui, -ap
 .adv-toggle span { display: grid; transform: rotate(90deg); transition: transform .2s; }
 .adv-toggle .up { transform: rotate(-90deg); }
 .adv-body { padding-top: 14px; }
+
+/* ---------- Chit types, additional chits, fixed chit ---------- */
+/* Big type cards on the first Create screen: one tap, plain words, Tamil name under the English one. */
+.type-card { display: flex; align-items: flex-start; gap: 14px; width: 100%; text-align: left; padding: 18px 16px; background: var(--card); border: 2px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--sh-1); }
+.type-card + .type-card { margin-top: 12px; }
+.type-card:active { border-color: var(--secondary); background: var(--secondary-50); }
+.type-card .grow { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.type-card b { font-size: var(--fs-17); }
+.type-card.soon { opacity: .6; border-style: dashed; box-shadow: none; }
+.tc-ic { width: 56px; height: 56px; flex: none; display: grid; place-items: center; border-radius: var(--r); background: #FEF3C7; color: #B45309; }
+.tc-ic.sm { width: 40px; height: 40px; }
+.phone.theme-dark .tc-ic { background: color-mix(in srgb, #B45309 26%, var(--card)); color: color-mix(in srgb, #F59E0B 70%, white); }
+.tc-ta { font-size: var(--fs-14); font-weight: 600; color: var(--secondary-d); }
+.tc-d { font-size: var(--fs-13); color: var(--muted-strong); margin-top: 4px; line-height: 1.45; }
+.type-now { display: flex; align-items: center; gap: 12px; padding: 12px; margin-bottom: 16px; border-radius: var(--r); background: var(--surface-2); }
+.type-now .grow { display: flex; flex-direction: column; min-width: 0; }
+
+/* Photo picker */
+.photo-pick { display: flex; align-items: center; gap: 12px; padding: 10px; margin-bottom: 8px; border: 1.5px dashed var(--border); border-radius: var(--r); cursor: pointer; }
+.photo-pick img, .pp-empty { width: 60px; height: 60px; flex: none; border-radius: var(--r); object-fit: cover; }
+.pp-empty { display: grid; place-items: center; background: var(--secondary-50); color: var(--secondary-d); }
+.photo-pick .grow { display: flex; flex-direction: column; }
+
+/* Big choice buttons: number of chits per person, which chit to bid with */
+.count-pick { display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 8px; margin-bottom: 8px; }
+.count-pick button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 64px; padding: 8px 6px; border: 2px solid var(--border); border-radius: var(--r); background: var(--card); text-align: center; }
+.count-pick button b { font-size: var(--fs-17); font-weight: 800; }
+.count-pick button span { font-size: var(--fs-12); color: var(--muted-strong); }
+.count-pick button.on { border-color: var(--secondary); background: var(--secondary-50); color: var(--secondary-d); }
+
+/* "Each chit pays ₹5,000 every month" */
+.pay-big { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; padding: 16px; border-radius: var(--r-lg); background: var(--secondary-50); border: 1.5px solid color-mix(in srgb, var(--secondary) 30%, transparent); }
+.pay-big span { font-size: var(--fs-13); font-weight: 600; color: var(--secondary-d); }
+.pay-big b { font-size: var(--fs-28); font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.pay-big small { font-size: var(--fs-12); color: var(--muted-strong); }
+.chip.big { height: 42px; padding: 0 16px; font-size: var(--fs-15); font-weight: 600; }
+.stepper.locked { display: flex; width: 100%; height: 40px; justify-content: center; background: var(--surface-2); }
+.stepper.locked span { display: grid; place-items: center; }
+
+/* Fixed order: move a chit up or down the month list */
+.ord-btns { display: flex; gap: 4px; flex: none; }
+.ord-btns .iconbtn { width: 40px; height: 40px; border-radius: var(--r-sm); background: var(--secondary-50); color: var(--secondary-d); font-size: 13px; }
+.ord-btns .iconbtn:disabled { opacity: .3; }
+
+/* Chit home */
+.hero-co { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.hero-co img { width: 40px; height: 40px; border-radius: var(--r-sm); object-fit: cover; flex: none; box-shadow: 0 0 0 2px color-mix(in srgb, var(--on-dark) 30%, transparent); }
+.hero-co span { display: flex; flex-direction: column; line-height: 1.2; }
+.hero-co small { font-size: var(--fs-12); opacity: .8; }
+.my-chit + .my-chit { margin-top: 10px; }
+.tk { display: grid; place-items: center; flex: none; min-width: 52px; height: 40px; padding: 0 6px; border-radius: var(--r-sm); background: var(--secondary-50); color: var(--secondary-d); font-weight: 800; font-size: var(--fs-13); }
+.li-main .multi { display: inline-flex; align-items: center; gap: 4px; color: var(--info-ink); font-weight: 600; }
+
+/* ---------- Large text (Settings → Large text; on by default) ----------
+ * Bigger type and touch targets for members who are not used to small phone text. Works by raising the theme's
+ * font-size tokens, so every screen grows together. */
+.phone.big {
+  --fs-11: 13px; --fs-12: 14px; --fs-13: 15px; --fs-14: 16px; --fs-15: 17px; --fs-17: 19px; --fs-20: 22px; --fs-22: 24px; --fs-28: 30px;
+}
+.phone.big .btn { height: 54px; font-size: var(--fs-15); }
+.phone.big .btn-md { height: 46px; }
+.phone.big .btn-sm { height: 40px; padding: 0 14px; }
+.phone.big .input, .phone.big .select, .phone.big .prefix-input { height: 52px; }
+.phone.big button.opt { padding: 14px; }
+.phone.big .li { min-height: 60px; padding-top: 14px; padding-bottom: 14px; }
+.phone.big .chip { height: 40px; }
+.phone.big .stepper button { height: 44px; }
+.phone.big .label { font-size: var(--fs-14); }
+.phone.big .rd-grid { grid-template-columns: repeat(2, 1fr); }
+.phone.big .auc-amt { font-size: 44px; }
+.phone.big .acc-h { padding: 16px 14px; }
+.phone.big .acc-h .rnd, .phone.big .rnd { width: 32px; height: 32px; }
+
+/* "Change to auction / fixed" wraps to two short lines so the chit type keeps its width */
+.type-now .type-switch, .phone.big .type-now .type-switch { flex: none; width: 118px; height: auto; min-height: 44px; padding: 6px 10px; font-size: var(--fs-13); white-space: normal; line-height: 1.2; text-align: center; }
+
+/* Date and time pickers: the browser draws the calendar/clock icon in black, which disappears on the dark
+ * theme. Tell the browser which scheme the page uses, and tint the icon with the brand colour. */
+.phone.theme-dark input[type="date"], .phone.theme-dark input[type="time"] { color-scheme: dark; }
+input[type="date"]::-webkit-calendar-picker-indicator, input[type="time"]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 1; filter: invert(48%) sepia(79%) saturate(2476%) hue-rotate(196deg) brightness(98%) contrast(96%); }

@@ -266,7 +266,7 @@ const Temple = {
     const t = Object.assign(TempleData.defaults(), o);
     if (o.meCollector) t.collectors.unshift({ id: 'c0', name: S().user.name, phone: S().user.phone, userId: 'me', localities: o.myLocalities || [] });
     t.collectors.forEach(c => { c.localities = c.localities || []; });
-    S().mod.temple[id] = t;
+    (S().mod.temple = S().mod.temple || {})[id] = t; // a new user has no temple records yet
     Act.audit(id, 'Temple collection created and activated', 'service', { after: { temple: t.temple.name, purpose: t.campaign.purpose, rule: CONTRIB[t.campaign.type], amount: rs(t.campaign.amountP) } });
     Act.notify(id, 'Collection is live', `${t.campaign.name} · ${t.collectors.length} collector${t.collectors.length > 1 ? 's' : ''}. Register families to start collecting.`, { s: 'templeHome', p: { id } });
     Store.save();

@@ -2,7 +2,7 @@
 
 Live demo: https://zontechx-india.github.io/villagehub-demo/
 
-A clickable mobile prototype of VillageHub (Chit Auction and Temple Vari Tharagar modules) with sample data and no backend.
+A clickable mobile prototype of VillageHub (Chit Fund — fixed monthly and auction chits — and Temple Vari Tharagar modules) with sample data and no backend.
 It installs as an app from the browser (PWA) and opens full-screen from the home-screen icon.
 
 - **Test OTP:** `123456` · **Join code:** `KWC-2026`

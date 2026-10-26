@@ -1,7 +1,7 @@
 /* Offline cache for the installed prototype. Network first, so every visit online gets the latest push;
  * the cache is the fallback when there is no connection. Bump VERSION to drop old caches. */
 
-const VERSION = 'villagehub-demo-v4';
+const VERSION = 'villagehub-demo-v5';
 const CORE = [
   './', 'index.html', 'manifest.webmanifest',
   'assets/styles.css', 'assets/hub.css', 'assets/demo.css',

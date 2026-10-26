@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>VillageHub Prototype</title>
-  <meta name="description" content="Clickable mobile prototype of VillageHub: Chit Auction and Temple Vari Tharagar modules, with mock data.">
+  <meta name="description" content="Clickable mobile prototype of VillageHub: Chit Fund (fixed monthly and auction chits) and Temple Vari Tharagar modules, with mock data.">
   <!-- Installable app (PWA) -->
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#000000">
@@ -42,7 +42,8 @@
         <h4>Guided flows</h4>
         <ol class="flows">
           <li><div><b>Sign up as a new user</b><span>Mobile number → OTP → your name → empty home → Create a service.</span></div><button onclick="Panel.newUser()">Start</button></li>
-          <li><div><b>Create a chit group</b><span>One-page setup with collapsible sections and a live settlement preview. Saved as a draft as you go.</span></div><button onclick="Panel.jump('chitWizard')">Start</button></li>
+          <li><div><b>Create a chit group</b><span>Pick the type first: fixed monthly chit or auction chit. One page with collapsible sections. Saved as a draft as you go.</span></div><button onclick="Panel.jump('chitWizard')">Start</button></li>
+          <li><div><b>Fixed monthly chit</b><span>No auction. You hold 2 chits. Tonight's turn goes to the next member in the order → approve → payout.</span></div><button onclick="Panel.jump('chitRound',{id:'s_chit5',n:4})">Start</button></li>
           <li><div><b>Run a live auction</b><span>Two-minute auction with other bidders → approve the result → send the payout.</span></div><button onclick="Panel.openAuction()">Start</button></li>
           <li><div><b>Collect payments (organiser)</b><span>Verify an agent's cash entry, record cash for an overdue member, reverse with a reason.</span></div><button onclick="Panel.jump('chitHome',{id:'s_chit1',tab:'payments'})">Start</button></li>
           <li><div><b>Pay your dues (member)</b><span>Your ledger in another chit. Pay round 3 by UPI and watch it confirm.</span></div><button onclick="Panel.jump('chitMember',{id:'s_chit2',mid:'m7'})">Start</button></li>
@@ -60,6 +61,7 @@
           <button onclick="Panel.jump('activity')">Activity</button>
           <button onclick="Panel.jump('chitHome',{id:'s_chit1'})">Chit organiser</button>
           <button onclick="Panel.jump('chitHome',{id:'s_chit2'})">Chit member</button>
+          <button onclick="Panel.jump('chitHome',{id:'s_chit5'})">Fixed chit (2 chits)</button>
           <button onclick="Panel.jump('templeHome',{id:'s_tem1'})">Temple admin</button>
           <button onclick="Panel.jump('templeHome',{id:'s_tem2'})">Collector</button>
           <button onclick="Panel.jump('templeHome',{id:'s_tem3'})">Temple family</button>
@@ -98,6 +100,7 @@
       <details class="panel-sec panel-adv">
         <summary>Advanced scenarios</summary>
         <p class="panel-note">Simulate problems to see how the app handles them.</p>
+        <label class="panel-check"><input type="checkbox" id="simBig" checked onchange="BigText.set(this.checked)"> Large text (easy reading)</label>
         <label class="panel-check"><input type="checkbox" id="simNoBids" onchange="Panel.sim('noBids',this.checked)"> Nobody else bids in the auction</label>
         <label class="panel-check"><input type="checkbox" id="simPayout" onchange="Panel.sim('payoutFail',this.checked)"> Next payout transfer fails</label>
         <label class="panel-check"><input type="checkbox" id="simUpi" onchange="Panel.sim('upiFail',this.checked)"> UPI / bank payments fail</label>

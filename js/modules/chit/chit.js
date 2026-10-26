@@ -38,6 +38,7 @@ const ChitData = {
   defaultRules() {
     const d = new Date(Date.now() + 30 * 86400000);
     return {
+      chitType: 'auction', company: (S() && S().user.company) || '', photo: null, maxTickets: ChitEngine.MAX_TICKETS, turnOrder: 'order',
       name: '', desc: '', poolMeaning: 'monthly', poolP: RP(100000), members: 20, rounds: 20, contributionP: RP(5000), frequency: 'monthly',
       startDate: d.toLocaleDateString('en-CA', { timeZone: TZ }), auctionTime: '19:00', auctionMinutes: 30, dueDays: 5, visibility: 'invite',
       auctionType: 'live', preBid: false, minDiscountP: RP(5000), maxDiscountP: RP(40000), incrementP: RP(500), tieBreak: 'first_bid', noBid: 'postpone',
@@ -96,6 +97,16 @@ const ChitData = {
     r.status = 'OPEN'; r.endsAt = new Date(t0 + g.rules.auctionMinutes * 60000).toISOString();
     r.history.push({ at, t: 'Auction opened', by: 'system' });
     ChitServer.close(g, r, { at: r.endsAt, silent: true });
+    ChitData.seedPaid(g, r, o);
+  },
+  // Fixed chit: the turn is decided (fixed order or lots), approved and paid out, as the live flow would.
+  seedTurn(g, n, o = {}) {
+    const r = g.rounds[n - 1];
+    ChitServer.draw(g, r, { at: r.auctionAt });
+    ChitData.seedPaid(g, r, o);
+  },
+  seedPaid(g, r, o) {
+    const n = r.n, win = Chit.mem(g, r.result.winnerId);
     ChitServer.approve(g, r, { by: o.approver || 'me', at: new Date(new Date(r.endsAt).getTime() + 15 * 60000).toISOString(), silent: true });
     const p = r.payout, pt = new Date(new Date(r.endsAt).getTime() + 86400000);
     ['UNDER_REVIEW', 'APPROVED', 'PROCESSING', 'PAID'].forEach((s, i) => p.history.push({ s, at: new Date(pt.getTime() + i * 3600000).toISOString(), by: s === 'PAID' ? 'Bank (confirmed)' : (o.approver || 'me') }));
@@ -176,6 +187,27 @@ const ChitData = {
     st.memberships.push({ svcId: id4, role: 'admin', status: 'active', joinedAt: nowISO() });
     st.mod.chit[id4] = Object.assign(ChitData.group(rules4, 'DSC-7310'), { draftStep: 3 });
 
+    /* 5. Fixed monthly chit (no auction), organised by you. Additional chits: you hold 2 tickets, Lakshmi 3,
+     *    Karthik 2 — each ticket pays separately. Commission 5% of the chit amount. Round 4 is tonight. */
+    const id5 = 's_chit5';
+    const rules5 = Object.assign(ChitData.defaultRules(), { chitType: 'fixed', company: 'Sri Murugan Chits', name: 'Sri Murugan Fixed Chit · ₹1 Lakh', desc: 'No auction. Every month one ticket gets ₹95,000 in the order agreed at the start.', turnOrder: 'order', startDate: ChitData.istDate(ChitData.shiftMonths(r6, -3)) });
+    st.services.push({ id: id5, type: 'chit', name: rules5.name, status: 'active', code: 'SMF-1190', createdBy: 'me', createdAt: ChitData.shiftMonths(r6, -4), place: 'Murugan Kovil Street' });
+    st.memberships.push({ svcId: id5, role: 'admin', status: 'active', joinedAt: ChitData.shiftMonths(r6, -4) });
+    const g5 = ChitData.group(rules5, 'SMF-1190');
+    g5.ruleVersions.push({ v: 1, publishedAt: ChitData.shiftMonths(r6, -4), by: 'me', reason: 'Initial publication', rules: JSON.parse(JSON.stringify(rules5)) });
+    [0, 1].forEach(() => ChitData.addMember(g5, me, st.user.phone, { userId: 'me' }));
+    const lak = '9840011223', kar = '9840044556';
+    [0, 1, 2].forEach(() => ChitData.addMember(g5, 'Lakshmi Raman', lak));
+    [0, 1].forEach(() => ChitData.addMember(g5, 'Karthik Raja', kar));
+    ChitData.NAMES.filter(n => !['Lakshmi Raman', 'Karthik Raja'].includes(n)).slice(0, 13).forEach(n => ChitData.addMember(g5, n));
+    const first = ['M003', 'M011', 'M001', 'M008'];
+    g5.order = first.concat(g5.members.map(m => m.ticket).filter(t => !first.includes(t))).map(t => g5.members.find(m => m.ticket === t).id);
+    ChitData.buildRounds(g5);
+    st.mod.chit[id5] = g5;
+    [1, 2, 3].forEach(n => ChitData.seedTurn(g5, n));
+    [1, 2].forEach(n => ChitData.seedPayments(g5, n));
+    ChitData.seedPayments(g5, 3, { M002: 'unpaid', M009: 'unpaid', M014: 'partial' });
+
     return [id1, id2];
   }
 };
@@ -250,6 +282,24 @@ const ChitServer = {
     r.history.push({ at: r.closedAt, t: st.ok ? 'Result calculated · awaiting approval' : 'Settlement failed validation', note: st.ok ? `Winner ${Chit.mem(g, hi.memberId).ticket} · ${rs(hi.discountP)} discount` : st.errors.join(' '), by: 'system' });
   },
 
+  /* A round with no bidding. Fixed chit: the ticket is taken from the agreed order, or drawn by lots among
+   * tickets that have not received the money yet. Auction chit: when only one ticket is left, it gets the full
+   * pool without an auction (it never bid, so no discount). The result still waits for organiser approval. */
+  draw(g, r, o = {}) {
+    if (r.status !== 'SCHEDULED') return;
+    const at = o.at || nowISO(), fixed = Chit.isFixed(g), lots = fixed && g.rules.turnOrder === 'lots';
+    const left = Chit.active(g).filter(m => !m.wins.length);
+    const win = !fixed ? Chit.lastOne(g) : lots ? left[Math.floor(Math.random() * left.length)] : Chit.turnFor(g, r.n);
+    if (!win) return;
+    const how = !fixed ? 'last' : lots ? 'lots' : 'order';
+    const st = ChitEngine.settlePlain(g.rules, r.n, win.id, Chit.active(g), fixed ? 'fixed' : 'last');
+    r.closedAt = at; r.endsAt = at;
+    r.result = { winnerId: win.id, bidId: null, discountP: 0, st, how, status: 'PENDING_APPROVAL', tie: false, closedAt: at, rulesVersion: g.ruleVersions.length };
+    r.status = st.ok ? 'RESULT_PENDING_APPROVAL' : 'DISPUTED';
+    const t = { order: 'Turn by fixed order', lots: 'Lots drawn', last: 'Last member · no auction needed' }[how];
+    r.history.push({ at, t, note: `${win.ticket} gets ${rs(st.payoutNetP)}${how === 'lots' ? ` · drawn from ${left.length} tickets` : ''}`, by: 'system' });
+  },
+
   // Approve → finalise → post settlement → create payout. Guarded against double finalisation.
   approve(g, r, o = {}) {
     if (r.status !== 'RESULT_PENDING_APPROVAL') return 'This result was already finalised by another organiser. Showing the latest state.';
@@ -279,7 +329,26 @@ const Chit = {
   g: id => modData('chit', id),
   mem: (g, id) => g.members.find(m => m.id === id),
   me: g => g.members.find(m => m.userId === 'me'),
+  // All of my tickets (additional chits). Each ticket pays and receives separately.
+  mine: g => g.members.filter(m => m.userId === 'me' && m.status !== 'EXITED'),
+  // Every ticket held by the same person (same phone number) as ticket m.
+  tickets: (g, m) => g.members.filter(x => x.phone === m.phone && x.status !== 'EXITED'),
   active: g => g.members.filter(m => m.status === 'ACTIVE'),
+  isFixed: g => g.rules.chitType === 'fixed',
+  // Fixed chit, fixed order: the ticket for round n (organiser can reorder before publishing).
+  order(g) {
+    const ids = (g.order || []).filter(id => g.members.some(m => m.id === id && m.status !== 'EXITED'));
+    g.members.forEach(m => { if (m.status !== 'EXITED' && !ids.includes(m.id)) ids.push(m.id); });
+    return ids;
+  },
+  turnFor(g, n) { return Chit.mem(g, Chit.order(g)[n - 1]); },
+  // Auction chit: the one ticket left that has not received the pool (no auction is needed for it).
+  lastOne(g) {
+    const left = Chit.active(g).filter(m => !m.wins.length);
+    return g.rules.winOnce && left.length === 1 ? left[0] : null;
+  },
+  // This round is settled without bidding (fixed chit, or the last ticket of an auction chit).
+  noAuction: g => Chit.isFixed(g) || !!Chit.lastOne(g),
   round: (g, n) => g.rounds[n - 1],
   highest(r) {
     const acc = r.bids.filter(b => b.status === 'ACCEPTED' && !b.round);
@@ -354,6 +423,7 @@ const Chit = {
     const v = ChitEngine.validate(g.rules, rs);
     if (!v.ok) return UI.toast('Fix the highlighted settings before publishing', 'err');
     g.rules.contributionP = g.rules.poolP / g.rules.members;
+    if (Chit.isFixed(g)) g.order = Chit.order(g);
     ChitData.buildRounds(g);
     (g.dateEdits || []).forEach(([n, at]) => { const r = g.rounds[n - 1]; if (r) { r.auctionAt = at; r.origAt = at; } });
     g.ruleVersions.push({ v: 1, publishedAt: nowISO(), by: 'me', reason: 'Initial publication', rules: JSON.parse(JSON.stringify(g.rules)) });
@@ -374,22 +444,32 @@ const Chit = {
     App.reset('chitHome', { id: svcId, tab: 'overview' });
     UI.toast('Published · invitations sent', 'ok');
   },
-  invite(svcId, name, phone) {
-    const g = Chit.g(svcId);
+  // count = how many chits (tickets) this person takes. Additional chits: up to rules.maxTickets per person,
+  // and each ticket pays its own contribution.
+  invite(svcId, name, phone, count = 1) {
+    const g = Chit.g(svcId), draft = svcById(svcId).status === 'draft', max = g.rules.maxTickets || 1;
     if (!Reg.can(svcId, 'members.manage')) return Act.denied('invite members');
-    if (g.members.some(m => m.phone === phone && m.status !== 'EXITED')) return 'This phone number is already in the member list.';
-    if (svcById(svcId).status !== 'draft' && g.members.filter(m => m.status !== 'EXITED').length >= g.rules.members) return `All ${g.rules.members} tickets are taken. The published member count cannot change without an amendment.`;
-    const m = ChitData.addMember(g, name, phone, { invite: svcById(svcId).status === 'draft' ? 'ACCEPTED' : 'INVITED', status: svcById(svcId).status === 'draft' ? 'ACTIVE' : 'PENDING' });
-    Act.audit(svcId, `Member ${m.ticket} invited`, 'chit_memberships', { after: { name, phone: fmt.masked(phone) } });
+    const has = g.members.filter(m => m.phone === phone && m.status !== 'EXITED');
+    if (has.length + count > max) return has.length ? `This person already has ${has.length} chit${has.length > 1 ? 's' : ''}. One person can hold at most ${max} in this group.` : `One person can hold at most ${max} chit${max > 1 ? 's' : ''} in this group.`;
+    const free = g.rules.members - g.members.filter(m => m.status !== 'EXITED').length;
+    if (!draft && count > free) return free ? `Only ${free} ticket${free > 1 ? 's are' : ' is'} left.` : `All ${g.rules.members} tickets are taken. The published member count cannot change without an amendment.`;
+    const who = has.length ? has[0].name : name;
+    for (let i = 0; i < count; i++) {
+      const m = ChitData.addMember(g, who, phone, { invite: draft ? 'ACCEPTED' : 'INVITED', status: draft ? 'ACTIVE' : 'PENDING' });
+      Act.audit(svcId, `Member ${m.ticket} invited`, 'chit_memberships', { after: { name: who, phone: fmt.masked(phone), chit: `${has.length + i + 1} of ${has.length + count}` } });
+    }
     Act.commit();
     return '';
   },
   acceptRules(svcId) {
-    const g = Chit.g(svcId), m = Chit.me(g);
-    m.invite = 'ACCEPTED'; m.status = 'ACTIVE'; m.acceptedVersion = g.ruleVersions.length; m.acceptedAt = nowISO();
-    Act.audit(svcId, `${m.ticket} accepted rules v${m.acceptedVersion}`, 'chit_memberships', {});
+    const g = Chit.g(svcId), v = g.ruleVersions.length;
+    // One acceptance covers every ticket this person holds.
+    Chit.mine(g).forEach(m => {
+      m.invite = 'ACCEPTED'; m.status = 'ACTIVE'; m.acceptedVersion = v; m.acceptedAt = nowISO();
+      Act.audit(svcId, `${m.ticket} accepted rules v${v}`, 'chit_memberships', {});
+    });
     Act.commit();
-    UI.toast(`Rules v${m.acceptedVersion} accepted · you can bid when eligible`, 'ok');
+    UI.toast(Chit.isFixed(g) ? `Rules v${v} accepted` : `Rules v${v} accepted · you can bid when eligible`, 'ok');
   },
   reschedule(svcId, n, iso, reason) {
     const g = Chit.g(svcId), r = Chit.round(g, n);
@@ -511,11 +591,12 @@ const Chit = {
   },
 
   /* --- Auction (user side) --- */
-  placeBid(svcId, n, discountP, req) {
-    const g = Chit.g(svcId), r = Chit.round(g, n), me = Chit.me(g);
+  // mid: which of my tickets is bidding (a person with additional chits picks one).
+  placeBid(svcId, n, discountP, req, mid) {
+    const g = Chit.g(svcId), r = Chit.round(g, n), me = (mid && Chit.mine(g).find(m => m.id === mid)) || Chit.me(g);
     if (!Reg.can(svcId, 'bid')) return Act.denied('bid');
     const b = ChitServer.bid(g, r, me.id, discountP, req);
-    if (b.status === 'ACCEPTED') Act.audit(svcId, `Bid accepted · round ${n}`, 'bids', { after: { discount: rs(discountP), at: fmt.time(b.at) } });
+    if (b.status === 'ACCEPTED') Act.audit(svcId, `Bid accepted · round ${n}`, 'bids', { after: { ticket: me.ticket, discount: rs(discountP), at: fmt.time(b.at) } });
     Act.commit();
     return b;
   }
@@ -530,7 +611,8 @@ const ChitClock = {
     Object.entries(st.mod.chit).forEach(([svcId, g]) => {
       const s = svcById(svcId); if (!s || s.status !== 'active') return;
       g.rounds.forEach(r => {
-        if (r.status === 'SCHEDULED' && Date.now() >= new Date(r.auctionAt).getTime() && Chit.active(g).length === g.rules.members) {
+        if (r.status === 'SCHEDULED' && Date.now() >= new Date(r.auctionAt).getTime() && Chit.active(g).length === g.rules.members && !g.rounds.some(x => ['OPEN', 'CLOSED', 'RESULT_PENDING_APPROVAL', 'FINALIZED'].includes(x.status))) {
+          if (Chit.noAuction(g)) { ChitClock.drawNow(svcId, r.n); changed = true; return; }
           ChitServer.open(g, r, { endsAt: new Date(new Date(r.auctionAt).getTime() + DEMO_WINDOW_S * 1000).toISOString() });
           if (membership(svcId)) Act.notify(svcId, `Round ${r.n} auction is live`, 'Bidding is open now.', { s: 'chitAuction', p: { id: svcId, n: r.n } }, { kind: 'nAuction' });
           changed = true;
@@ -562,29 +644,43 @@ const ChitClock = {
   closeNow(svcId, n) {
     const g = Chit.g(svcId), r = Chit.round(g, n);
     ChitServer.close(g, r);
+    ChitClock.after(svcId, n);
+  },
+  // Fixed chit / last ticket: decide this round's turn without an auction.
+  drawNow(svcId, n) {
+    const g = Chit.g(svcId), r = Chit.round(g, n);
+    ChitServer.draw(g, r);
+    ChitClock.after(svcId, n);
+  },
+  after(svcId, n) {
+    const g = Chit.g(svcId), r = Chit.round(g, n), plain = r.result && r.result.how;
     const s = svcById(svcId), admin = myRole(svcId) === 'admin';
     if (r.status === 'RESULT_PENDING_APPROVAL') {
-      const w = Chit.mem(g, r.result.winnerId), mine = Chit.me(g) && w.id === Chit.me(g).id;
-      Act.notify(svcId, mine ? `You won round ${n}!` : `Round ${n} auction closed`, admin ? `Winner ${w.ticket} · ${rs(r.result.discountP)}. Review and approve the result.` : 'The organiser is reviewing the result.', { s: 'chitRound', p: { id: svcId, n } }, { kind: 'nAuction', private: true });
+      const w = Chit.mem(g, r.result.winnerId), mine = w.userId === 'me';
+      const title = mine ? (plain ? `Your turn: round ${n} money is yours` : `You won round ${n}!`) : plain ? `Round ${n}: ${w.ticket} gets the money` : `Round ${n} auction closed`;
+      Act.notify(svcId, title, admin ? (plain ? `${w.ticket} · ${rs(r.result.st.payoutNetP)}. Review and approve.` : `Winner ${w.ticket} · ${rs(r.result.discountP)}. Review and approve the result.`) : 'The organiser is reviewing the result.', { s: 'chitRound', p: { id: svcId, n } }, { kind: 'nAuction', private: true });
       // Mock organiser for services you only joined.
       if (!admin) setTimeout(() => {
         const gg = Chit.g(svcId), rr = Chit.round(gg, n);
         if (ChitServer.approve(gg, rr, { by: s.createdBy })) return;
         Act.audit(svcId, `Round ${n} result finalised`, 'auction_results', { actor: s.createdBy });
-        Act.notify(svcId, `Round ${n} result published`, `Dividend ${rs(rr.result.st.perMemberP)} per member credited to your round ${n} contribution.`, { s: 'chitRound', p: { id: svcId, n } }, { kind: 'nAuction', private: true });
+        Act.notify(svcId, `Round ${n} result published`, plain ? `${Chit.mem(gg, rr.result.winnerId).ticket} receives ${rs(rr.result.st.payoutNetP)}.` : `Dividend ${rs(rr.result.st.perMemberP)} per member credited to your round ${n} contribution.`, { s: 'chitRound', p: { id: svcId, n } }, { kind: 'nAuction', private: true });
         Act.commit();
       }, 6000);
-    } else {
+    } else if (!plain) {
       Act.notify(svcId, `Round ${n}: no valid bids`, r.status === 'SCHEDULED' ? `Postponed to ${fmt.dt(r.auctionAt)} under the published no-bid rule.` : 'The published no-bid rule was applied.', { s: 'chitRound', p: { id: svcId, n } }, { kind: 'nAuction' });
     }
-    Act.audit(svcId, `Round ${n} auction closed`, 'auctions', { actor: 'system', after: { status: r.status } });
+    Act.audit(svcId, plain ? `Round ${n} turn decided` : `Round ${n} auction closed`, plain ? 'chit_rounds' : 'auctions', { actor: 'system', after: { status: r.status } });
     Store.save();
   },
   // Prototype control: the server opens the next scheduled auction now (published time is unchanged in history).
+  // Fixed chit or last ticket: it decides the turn now instead.
   openNow(svcId) {
     const g = Chit.g(svcId), r = g.rounds.find(x => x.status === 'SCHEDULED');
     if (!r) return UI.toast('No scheduled round', 'err');
     if (Chit.active(g).length !== g.rules.members) return UI.toast(`Only ${Chit.active(g).length} of ${g.rules.members} members have accepted. Auction cannot open.`, 'err');
+    if (g.rounds.some(x => ['OPEN', 'CLOSED', 'RESULT_PENDING_APPROVAL', 'FINALIZED'].includes(x.status))) return UI.toast('Finish the previous round first (approve its result)', 'err');
+    if (Chit.noAuction(g)) { ChitClock.drawNow(svcId, r.n); return r.n; }
     ChitServer.open(g, r, { note: 'Opened early from the prototype control panel (demo)' });
     Act.notify(svcId, `Round ${r.n} auction is live`, 'Bidding is open now.', { s: 'chitAuction', p: { id: svcId, n: r.n } }, { kind: 'nAuction' });
     Store.save();
@@ -594,8 +690,8 @@ const ChitClock = {
 
 /* ---------- Registry definition ---------- */
 Reg.register({
-  key: 'chit', name: 'Chit Auction', short: 'Chit', icon: 'gavel', tint: '#FEF3C7', fg: '#B45309', status: 'available', home: 'chitHome', joinRole: 'member',
-  desc: 'Run a chit group: members, monthly auctions, fees, dividends, payouts and full round history.',
+  key: 'chit', name: 'Chit Fund', short: 'Chit', icon: 'gavel', tint: '#FEF3C7', fg: '#B45309', status: 'available', home: 'chitHome', joinRole: 'member',
+  desc: 'Run a fixed monthly chit or an auction chit: members, monthly turns, commission, payouts and full history.',
   createPerm: 'platform.create',
   roles: {
     admin: { label: 'Organiser', tone: 'navy', perms: ['*'] },
@@ -611,31 +707,32 @@ Reg.register({
     const g = Chit.g(s.id); if (!g) return '';
     if (s.status === 'draft') return `Draft · ${rs(g.rules.poolP)} pool · ${g.rules.members} members`;
     const c = Chit.current(g);
-    return `Round ${c.n} of ${g.rules.rounds} · ${rs(g.rules.poolP)} monthly pool`;
+    return `${Chit.isFixed(g) ? 'Fixed chit · ' : ''}Round ${c.n} of ${g.rules.rounds} · ${rs(g.rules.poolP)} monthly pool`;
   },
   stats(s, role) {
     const g = Chit.g(s.id); if (!g || s.status === 'draft') return [];
-    const c = Chit.current(g), me = Chit.me(g);
+    const c = Chit.current(g), mine = Chit.mine(g);
     if (role === 'admin') { const x = Chit.stats(g); return [[`${Chit.settledCount(g)}/${g.rules.rounds}`, 'Rounds done'], [x.overdue.length, 'Overdue'], [rs(x.outstandingP), 'Outstanding']]; }
-    const due = me ? Chit.arrears(g, me.id).reduce((a, o) => a + o.balP, 0) : 0;
-    return [[`${c.n}/${g.rules.rounds}`, 'Round'], [rs(due), 'You owe'], [me && me.wins.length ? 'Won R' + me.wins[0] : 'Eligible', 'Status']];
+    const due = mine.reduce((a, m) => a + Chit.arrears(g, m.id).reduce((b, o) => b + o.balP, 0), 0);
+    const won = mine.filter(m => m.wins.length);
+    return [[`${c.n}/${g.rules.rounds}`, 'Round'], [rs(due), 'You owe'], [mine.length > 1 ? `${won.length}/${mine.length} chits` : won.length ? 'Won R' + won[0].wins[0] : Chit.isFixed(g) ? 'Waiting' : 'Eligible', mine.length > 1 ? 'Got money' : 'Status']];
   },
   events(s, role) {
     const g = Chit.g(s.id); if (!g) return [];
-    const out = [], me = Chit.me(g);
+    const out = [];
     const nx = g.rounds.find(r => ['SCHEDULED', 'OPEN'].includes(r.status));
-    if (nx) out.push({ at: nx.status === 'OPEN' ? nowISO() : nx.auctionAt, title: `Round ${nx.n} auction`, sub: nx.status === 'OPEN' ? 'Live now' : s.name, ic: 'gavel', live: nx.status === 'OPEN', go: { s: nx.status === 'OPEN' ? 'chitAuction' : 'chitRound', p: { id: s.id, n: nx.n } } });
-    if (me) Chit.arrears(g, me.id).filter(o => o.status !== 'verifying').forEach(o => out.push({ at: o.dueAt, title: `Contribution due · ${rs(o.balP)}`, sub: `${s.name} · round ${o.n}`, ic: 'wallet', go: { s: 'chitMember', p: { id: s.id, mid: me.id } } }));
+    if (nx) out.push({ at: nx.status === 'OPEN' ? nowISO() : nx.auctionAt, title: Chit.isFixed(g) ? `Round ${nx.n} money day` : `Round ${nx.n} auction`, sub: nx.status === 'OPEN' ? 'Live now' : s.name, ic: Chit.isFixed(g) ? 'coins' : 'gavel', live: nx.status === 'OPEN', go: { s: nx.status === 'OPEN' ? 'chitAuction' : 'chitRound', p: { id: s.id, n: nx.n } } });
+    Chit.mine(g).forEach(me => Chit.arrears(g, me.id).filter(o => o.status !== 'verifying').forEach(o => out.push({ at: o.dueAt, title: `Contribution due · ${rs(o.balP)}`, sub: `${s.name} · ${me.ticket} · round ${o.n}`, ic: 'wallet', go: { s: 'chitMember', p: { id: s.id, mid: me.id } } })));
     return out;
   },
   pending(s, role) {
     const g = Chit.g(s.id); if (!g) return [];
-    const out = [], me = Chit.me(g);
+    const out = [], me = Chit.me(g), mine = Chit.mine(g), many = mine.length > 1;
     if (me && me.invite === 'INVITED') out.push({ title: 'Accept the scheme rules', sub: `${s.name} · rules v${g.ruleVersions.length}`, tone: 'warn', ic: 'file', go: { s: 'chitRules', p: { id: s.id, accept: 1 } } });
     const live = g.rounds.find(r => r.status === 'OPEN');
     if (live) out.push({ title: `Round ${live.n} auction is live`, sub: s.name, tone: 'red', ic: 'gavel', go: { s: 'chitAuction', p: { id: s.id, n: live.n } } });
-    if (me) Chit.arrears(g, me.id).forEach(o => out.push({ title: o.status === 'verifying' ? 'Payment being verified' : o.status === 'overdue' ? `Overdue: pay ${rs(o.balP)}` : `Pay ${rs(o.balP)} for round ${o.n}`, sub: `${s.name} · due ${fmt.dm(o.dueAt)}`, tone: o.status === 'overdue' ? 'red' : o.status === 'verifying' ? 'blue' : 'warn', ic: 'wallet', go: { s: 'chitMember', p: { id: s.id, mid: me.id } } }));
-    if (me && me.wins.length) { const r = Chit.round(g, me.wins[me.wins.length - 1]); if (r.payout && r.payout.status !== 'PAID') out.push({ title: `Your payout: ${PAYOUT_ST[r.payout.status].label}`, sub: `${s.name} · ${rs(r.payout.netP)}`, tone: 'blue', ic: 'bank', go: { s: 'chitRound', p: { id: s.id, n: r.n } } }); }
+    mine.forEach(me => Chit.arrears(g, me.id).forEach(o => out.push({ title: o.status === 'verifying' ? 'Payment being verified' : o.status === 'overdue' ? `Overdue: pay ${rs(o.balP)}` : `Pay ${rs(o.balP)} for round ${o.n}`, sub: `${s.name}${many ? ' · ' + me.ticket : ''} · due ${fmt.dm(o.dueAt)}`, tone: o.status === 'overdue' ? 'red' : o.status === 'verifying' ? 'blue' : 'warn', ic: 'wallet', go: { s: 'chitMember', p: { id: s.id, mid: me.id } } })));
+    mine.filter(me => me.wins.length).forEach(me => { const r = Chit.round(g, me.wins[me.wins.length - 1]); if (r.payout && r.payout.status !== 'PAID') out.push({ title: `Your payout: ${PAYOUT_ST[r.payout.status].label}`, sub: `${s.name} · ${rs(r.payout.netP)}`, tone: 'blue', ic: 'bank', go: { s: 'chitRound', p: { id: s.id, n: r.n } } }); });
     if (role === 'admin') {
       g.rounds.filter(r => r.status === 'RESULT_PENDING_APPROVAL').forEach(r => out.push({ title: `Approve round ${r.n} result`, sub: s.name, tone: 'warn', ic: 'check', go: { s: 'chitRound', p: { id: s.id, n: r.n } } }));
       g.rounds.filter(r => r.payout && ['PENDING', 'UNDER_REVIEW', 'APPROVED', 'FAILED'].includes(r.payout.status)).forEach(r => out.push({ title: `Payout ${PAYOUT_ST[r.payout.status].label.toLowerCase()} · round ${r.n}`, sub: `${s.name} · ${rs(r.payout.netP)}`, tone: r.payout.status === 'FAILED' ? 'red' : 'warn', ic: 'bank', go: { s: 'chitRound', p: { id: s.id, n: r.n } } }));

@@ -48,8 +48,8 @@ const Panel = {
     App.stack = [{ name: 'home', params: {} }];
     App.go(name, params || {});
   },
-  loadDemo() { UI.close(true); Store.state = demoState(); Store.save(); App.session = {}; App.reset('home'); UI.toast('Demo data loaded', 'ok'); },
-  newUser() { UI.close(true); Store.state = freshState(); Store.save(); App.session = {}; App.reset('splash'); },
+  loadDemo() { UI.close(true); Store.state = demoState(); Store.save(); BigText.apply(); App.session = {}; App.reset('home'); UI.toast('Demo data loaded', 'ok'); },
+  newUser() { UI.close(true); Store.state = freshState(); Store.save(); BigText.apply(); App.session = {}; App.reset('splash'); },
   openAuction() {
     Panel.ensureDemo();
     const n = ChitClock.openNow('s_chit1');
@@ -75,6 +75,7 @@ function tickClock() {
   Theme.panel();
   ChromeStyle.apply(); ChromeStyle.panel();
   tickClock(); setInterval(tickClock, 30000);
+  BigText.apply();
   ChitClock.start();
   App.reset('splash');
 })();

@@ -19,11 +19,16 @@ const ChitEngine = (() => {
   const REMAINDER = { first_members: 'Leftover paise go one each to the lowest ticket numbers', organiser: 'Leftover paise are recorded as a rounding line to the organiser' };
   const TIE_BREAK = { first_bid: 'First valid bid received by the server at the highest discount wins', lots: 'Organiser draws lots between tied bids (recorded)' };
   const NO_BID = { postpone: 'Postpone the auction by 7 days', lots: 'Organiser draws lots among eligible members at the minimum discount', carry: 'Mark the round as no valid bids and move to the next round' };
+  // Chit types. Auction: members bid each month. Fixed: no bidding; one ticket gets the money each month.
+  const TYPES = { auction: 'Auction chit', fixed: 'Fixed monthly chit' };
+  const TURN = { order: 'Fixed order, decided at the start', lots: 'Draw lots each month' };
+  const MAX_TICKETS = 3; // one person can hold at most 3 tickets (additional chits) in one group
 
   // Human label for the configured fee, e.g. "5% of monthly gross pool" or "Fixed ₹5,000". Never just "5% commission".
   function feeLabel(r, money) {
     if (r.feeBasis === 'none') return 'No fee';
     if (r.feeBasis === 'fixed') return 'Fixed ' + money(r.feeFixedP);
+    if (r.chitType === 'fixed' && r.feeBasis === 'pool_pct') return (r.feeBps / 100) + '% of the chit amount';
     return (r.feeBps / 100) + FEE_BASIS[r.feeBasis];
   }
 
@@ -49,6 +54,7 @@ const ChitEngine = (() => {
    * Returns every figure in paise plus the reconciliation checks. `errors` must be empty before the
    * result can be finalised; invalid input is reported, never clamped to zero. */
   function settle(r, n, discountP, winnerId, members) {
+    if (r.chitType === 'fixed') return settlePlain(r, n, winnerId, members, 'fixed');
     const errors = [];
     const poolP = r.poolP;
     if (!(n >= 1 && n <= r.rounds)) errors.push(`Round ${n} is outside the scheme duration (1–${r.rounds}).`);
@@ -86,10 +92,32 @@ const ChitEngine = (() => {
     if (checks.some(c => !c.ok) && !errors.length) errors.push('Settlement does not reconcile in paise.');
 
     return {
-      version: VERSION, round: n, winnerId, poolP, discountP, feeP, feeApplied: feeApplies(r, n) && r.feeBasis !== 'none',
+      version: VERSION, kind: 'auction', round: n, winnerId, poolP, discountP, feeP, feeApplied: feeApplies(r, n) && r.feeBasis !== 'none',
       dividendPoolP, recipients: recipients.length, perMemberP: perP, remainderP: remP, roundingP, allocations,
       payoutGrossP, deductions, payoutNetP, contributionP: r.contributionP,
       netContributionP: r.contributionP - perP, checks, errors, ok: !errors.length
+    };
+  }
+
+  /* A round with no bidding: the whole pool goes to one ticket, minus the commission. Used for every round of a
+   * fixed chit, and for the last round of an auction chit when only one member has not received the pool yet
+   * (that member never had to bid, so there is no discount and no dividend). The commission is always itemised
+   * as a deduction from the payout. A "% of winning discount" fee is ₹0 here because the discount is ₹0. */
+  function settlePlain(r, n, winnerId, members, kind) {
+    const errors = [];
+    const poolP = r.poolP;
+    if (!(n >= 1 && n <= r.rounds)) errors.push(`Round ${n} is outside the scheme duration (1–${r.rounds}).`);
+    if (winnerId && !members.some(m => m.id === winnerId)) errors.push('Winner is not an active member of this chit.');
+    const feeP = fee(r, n, 0);
+    const deductions = feeP ? [{ label: kind === 'fixed' ? 'Commission' : 'Company fee', amountP: feeP }] : [];
+    const payoutNetP = poolP - feeP;
+    if (payoutNetP < 0) errors.push('The commission is larger than the chit amount.');
+    const checks = [{ label: 'Pool = payout + commission', ok: poolP === payoutNetP + feeP && payoutNetP >= 0, l: poolP, rr: [payoutNetP, feeP] }];
+    return {
+      version: VERSION, kind, round: n, winnerId, poolP, discountP: 0, feeP, feeApplied: feeApplies(r, n) && r.feeBasis !== 'none',
+      dividendPoolP: 0, recipients: 0, perMemberP: 0, remainderP: 0, roundingP: 0, allocations: [],
+      payoutGrossP: poolP, deductions, payoutNetP, contributionP: r.contributionP,
+      netContributionP: r.contributionP, checks, errors, ok: !errors.length
     };
   }
 
@@ -109,17 +137,24 @@ const ChitEngine = (() => {
     } else if (r.poolP > 0 && r.members >= 2 && (r.poolP / r.members) % 100 !== 0) {
       warnings.push(`Contribution works out to ${money(r.poolP / r.members)} (includes paise). Check members are comfortable paying this exact amount.`);
     }
-    if (r.members >= 2 && r.rounds >= 2 && r.members !== r.rounds) warnings.push(`Members (${r.members}) and rounds (${r.rounds}) differ. If one member must receive the pool each round, these should be equal.`);
-    if (r.minDiscountP < 0) E('minDiscount', 'Minimum discount cannot be negative.');
-    if (r.maxDiscountP <= r.minDiscountP) E('maxDiscount', 'Maximum discount must be greater than the minimum.');
-    if (r.maxDiscountP >= r.poolP) E('maxDiscount', 'Maximum discount must be less than the pool.');
-    if (!(r.incrementP > 0)) E('increment', 'Minimum bid increment must be more than ₹0.');
-    else if (r.incrementP > r.maxDiscountP - r.minDiscountP) E('increment', 'Increment is larger than the allowed discount range.');
+    const fixed = r.chitType === 'fixed';
+    if (fixed && r.members >= 2 && r.rounds >= 2 && r.members !== r.rounds) E('rounds', `In a fixed chit every ticket gets the money once, so months must equal tickets (${r.members}).`);
+    else if (r.members >= 2 && r.rounds >= 2 && r.members !== r.rounds) warnings.push(`Members (${r.members}) and rounds (${r.rounds}) differ. If one member must receive the pool each round, these should be equal.`);
+    if (r.maxTickets != null && !(r.maxTickets >= 1 && r.maxTickets <= MAX_TICKETS)) E('maxTickets', `One person can hold 1 to ${MAX_TICKETS} chits.`);
+    if (!fixed) {
+      if (r.minDiscountP < 0) E('minDiscount', 'Minimum discount cannot be negative.');
+      if (r.maxDiscountP <= r.minDiscountP) E('maxDiscount', 'Maximum discount must be greater than the minimum.');
+      if (r.maxDiscountP >= r.poolP) E('maxDiscount', 'Maximum discount must be less than the pool.');
+      if (!(r.incrementP > 0)) E('increment', 'Minimum bid increment must be more than ₹0.');
+      else if (r.incrementP > r.maxDiscountP - r.minDiscountP) E('increment', 'Increment is larger than the allowed discount range.');
+    }
+    if (fixed && r.feeBasis === 'discount_pct') E('fee', 'A fixed chit has no discount. Use a % of the chit amount, a fixed amount, or no commission.');
     if (r.feeBasis !== 'none') {
       if (r.feeBasis === 'fixed' && !(r.feeFixedP > 0)) E('fee', 'Enter the fixed fee amount.');
       if (r.feeBasis !== 'fixed' && !(r.feeBps > 0 && r.feeBps <= 10000)) E('fee', 'Enter a fee percentage between 0.01% and 100%.');
       if (r.feeTiming === 'selected' && !(r.feeRounds || []).length) E('feeRounds', 'Pick at least one round for the fee.');
-      if (r.feeSource === 'discount' && r.feeBasis !== 'discount_pct') {
+      if (fixed && r.feeBasis === 'fixed' && r.feeFixedP >= r.poolP) E('fee', 'The commission must be less than the chit amount.');
+      if (!fixed && r.feeSource === 'discount' && r.feeBasis !== 'discount_pct') {
         const f = r.feeBasis === 'fixed' ? r.feeFixedP : Math.round(r.poolP * r.feeBps / 10000);
         if (f > r.minDiscountP) E('minDiscount', `The fee (${money(f)}) is taken from the discount, so the minimum discount must be at least ${money(f)}. Otherwise a valid low bid could not be settled.`);
       }
@@ -157,7 +192,7 @@ const ChitEngine = (() => {
     return '';
   }
 
-  return { VERSION, FEE_BASIS, FEE_TIMING, FEE_SOURCE, DIV_TO, REMAINDER, TIE_BREAK, NO_BID, feeLabel, feeApplies, fee, settle, allocationFor, validate, schedule, istISO, checkBid };
+  return { VERSION, FEE_BASIS, FEE_TIMING, FEE_SOURCE, DIV_TO, REMAINDER, TIE_BREAK, NO_BID, TYPES, TURN, MAX_TICKETS, feeLabel, feeApplies, fee, settle, settlePlain, allocationFor, validate, schedule, istISO, checkBid };
 })();
 
 if (typeof module !== 'undefined') module.exports = ChitEngine;
