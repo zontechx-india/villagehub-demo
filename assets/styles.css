@@ -5,9 +5,9 @@
  * so changing a base colour updates the whole app. The Theme panel in the prototype (js/theme.js)
  * overrides these live; use its "Copy CSS" button to paste a chosen combination back here. */
 :root {
-  --primary: #17212B;   /* Deep navy: headers, dark buttons, provider gradient */
-  --secondary: #3390EC; /* Vibrant teal: main actions, active tab, links, highlights */
-  --accent: #F7A23B;    /* Warm orange: badges, new-request and payment-due highlights */
+  --primary: #18181C;   /* Charcoal: headers, dark buttons, provider gradient */
+  --secondary: #723BFA; /* Violet: main actions, active tab, links, selection */
+  --accent: #B9F500;    /* Lime: badges, highlights, second-language titles */
   --bg: #EFEFF4;        /* Screen background */
   --card: #FFFFFF;      /* Cards, sheets, inputs */
   --text: #000000;      /* Primary text */
@@ -15,7 +15,7 @@
   --border: #DADCE0;    /* Borders and dividers */
   --success: #4FAE4E;
   --error: #E53935;
-  --info: #3390EC;      /* Info banners, verified badge, customer banner gradient end */
+  --info: #723BFA;      /* Info banners, verified badge, customer banner gradient end */
   --star: #F7B500;      /* Rating stars */
   --on-dark: #FFFFFF;   /* Text and icons on primary and gradient backgrounds */
   --on-secondary: #FFFFFF; /* Text and icons on secondary (main buttons, selected day) */

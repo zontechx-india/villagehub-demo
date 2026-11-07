@@ -223,10 +223,10 @@ body, .phone.ui-native { font-family: 'Inter', 'Noto Sans Tamil', system-ui, -ap
 .type-card .grow { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .type-card b { font-size: var(--fs-17); }
 .type-card.soon { opacity: .6; border-style: dashed; box-shadow: none; }
-.tc-ic { width: 56px; height: 56px; flex: none; display: grid; place-items: center; border-radius: var(--r); background: #FEF3C7; color: #B45309; }
+.tc-ic { width: 56px; height: 56px; flex: none; display: grid; place-items: center; border-radius: var(--r); background: var(--accent-50); color: var(--accent-t); }
 .tc-ic.sm { width: 40px; height: 40px; }
-.phone.theme-dark .tc-ic { background: color-mix(in srgb, #B45309 26%, var(--card)); color: color-mix(in srgb, #F59E0B 70%, white); }
-.tc-ta { font-size: var(--fs-14); font-weight: 600; color: var(--secondary-d); }
+.phone.theme-dark .tc-ic { background: color-mix(in srgb, var(--accent) 14%, var(--card)); color: var(--accent); }
+.tc-ta { font-size: var(--fs-14); font-weight: 600; color: var(--accent-t); }
 .tc-d { font-size: var(--fs-13); color: var(--muted-strong); margin-top: 4px; line-height: 1.45; }
 .type-now { display: flex; align-items: center; gap: 12px; padding: 12px; margin-bottom: 16px; border-radius: var(--r); background: var(--surface-2); }
 .type-now .grow { display: flex; flex-direction: column; min-width: 0; }
@@ -287,10 +287,38 @@ body, .phone.ui-native { font-family: 'Inter', 'Noto Sans Tamil', system-ui, -ap
 .phone.big .acc-h { padding: 16px 14px; }
 .phone.big .acc-h .rnd, .phone.big .rnd { width: 32px; height: 32px; }
 
-/* "Change to auction / fixed" wraps to two short lines so the chit type keeps its width */
-.type-now .type-switch, .phone.big .type-now .type-switch { flex: none; width: 118px; height: auto; min-height: 44px; padding: 6px 10px; font-size: var(--fs-13); white-space: normal; line-height: 1.2; text-align: center; }
+/* Chit type: 3 tiles in one row at the top of the create form (Fixed · Auction · Gold soon) */
+.type-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.type-grid > * { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 6px; min-height: 148px; padding: 14px 4px 12px; border: 2px solid var(--border); border-radius: var(--r-lg); background: var(--card); text-align: center; }
+.type-grid b { font-size: var(--fs-14); font-weight: 800; line-height: 1.2; }
+
+.type-grid button.on { border-color: var(--secondary); background: var(--secondary-50); color: var(--secondary-d); }
+.type-grid .soon { opacity: .6; border-style: dashed; }
+
+/* Create chit: every setting is a card in a 2-column grid. Tap → bottom sheet. Filled cards show the value and a tick. */
+.cw-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.cw-card { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; min-height: 116px; padding: 12px; text-align: left; background: var(--card); border: 2px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--sh-1); }
+.cw-card:active { border-color: var(--secondary); background: var(--secondary-50); }
+.cw-card.ok { border-color: color-mix(in srgb, var(--success) 60%, var(--border)); }
+.cw-card.bad { border-color: var(--error); }
+.cw-top { display: flex; align-items: flex-start; justify-content: space-between; width: 100%; margin-bottom: 4px; }
+.cw-ic { width: 36px; height: 36px; display: grid; place-items: center; border-radius: var(--r); background: var(--secondary-50); color: var(--secondary-d); }
+.cw-tick { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; background: var(--success); color: #fff; }
+.cw-bad { color: var(--error); }
+.cw-t { font-size: var(--fs-14); font-weight: 800; line-height: 1.25; }
+.cw-v { font-size: var(--fs-13); font-weight: 700; color: var(--text); line-height: 1.3; word-break: break-word; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.cw-v.muted { color: var(--muted); font-weight: 500; }
+.cw-card.bad .cw-v { color: var(--error); }
+.cw-thumb { width: 36px; height: 36px; border-radius: 8px; object-fit: cover; }
 
 /* Date and time pickers: the browser draws the calendar/clock icon in black, which disappears on the dark
  * theme. Tell the browser which scheme the page uses, and tint the icon with the brand colour. */
 .phone.theme-dark input[type="date"], .phone.theme-dark input[type="time"] { color-scheme: dark; }
 input[type="date"]::-webkit-calendar-picker-indicator, input[type="time"]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 1; filter: invert(48%) sepia(79%) saturate(2476%) hue-rotate(196deg) brightness(98%) contrast(96%); }
+
+/* Second-language title (Tamil under English, or English under Tamil). Lime, so it never looks like the violet selection colour. */
+.lang2 { display: block; font-size: var(--fs-13); font-weight: 600; line-height: 1.3; color: var(--accent-t); word-break: break-word; }
+.phone.theme-dark .lang2 { color: var(--accent); }
+.cw-card .lang2 { margin-top: -2px; }
+.type-grid button.on b { color: var(--secondary-d); }
+.phone.theme-dark .type-grid button.on b { color: color-mix(in srgb, var(--secondary) 55%, white); }

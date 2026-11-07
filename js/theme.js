@@ -8,7 +8,7 @@
 const THEME_KEY = 'villagehub_theme';
 
 // Bump when the defaults change: older saved theme / navigation choices are dropped once so everyone gets the new defaults.
-const UI_DEFAULTS_VERSION = '2';
+const UI_DEFAULTS_VERSION = '3';
 try {
   if (localStorage.getItem('villagehub_ui_v') !== UI_DEFAULTS_VERSION) {
     [THEME_KEY, 'villagehub_nav_style', 'villagehub_nav_labels', 'villagehub_sheet_style'].forEach(k => localStorage.removeItem(k));
@@ -36,14 +36,14 @@ const THEME_FIELDS = [
 
 // Must match the :root base colours in assets/styles.css.
 const THEME_DEFAULT = {
-  primary: '#17212B', secondary: '#3390EC', accent: '#F7A23B', bg: '#EFEFF4', card: '#FFFFFF', text: '#000000', muted: '#707579',
-  border: '#DADCE0', success: '#4FAE4E', error: '#E53935', info: '#3390EC', star: '#F7B500', onDark: '#FFFFFF', onSecondary: '#FFFFFF',
+  primary: '#18181C', secondary: '#723BFA', accent: '#B9F500', bg: '#EFEFF4', card: '#FFFFFF', text: '#000000', muted: '#707579',
+  border: '#DADCE0', success: '#4FAE4E', error: '#E53935', info: '#723BFA', star: '#F7B500', onDark: '#FFFFFF', onSecondary: '#FFFFFF',
   catMode: 'colourful', style: 'standard', tints: 'neutral', dark: 'on'
 };
 
 // Dark surfaces applied on top of any light theme when dark mode is On (or System and the device is dark).
 // Brand colours (secondary, accent, success…) are kept from the theme.
-const DARK_SURFACES = { primary: '#2C2C2E', bg: '#000000', card: '#1C1C1E', text: '#FFFFFF', muted: '#8E8E93', border: '#38383A', onDark: '#FFFFFF' };
+const DARK_SURFACES = { primary: '#2A2A31', bg: '#18181C', card: '#232329', text: '#FFFFFF', muted: '#9A9AA3', border: '#34343C', onDark: '#FFFFFF' };
 const sysDark = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 
 // Presets only list what differs from the default.

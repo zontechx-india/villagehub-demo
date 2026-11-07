@@ -675,3 +675,13 @@ TA_P.unshift(
   [/^(\d+) round dates$/, n => `${n} சுற்றுத் தேதிகள்`], [new RegExp(`^${A_} – ${A_} discount$`), (a, b) => `${a} – ${b} தள்ளுபடி`], [/^dividend (.+)$/, d => `ஈவுத்தொகை: ${T(d)}`]
 );
 TA['The chit starts only when every ticket is filled and accepted.'] = 'எல்லாச் சீட்டுகளும் நிரம்பி, ஏற்றுக்கொண்ட பின்னரே சீட்டு தொடங்கும்.';
+
+/* ---------- Create chit as a grid of cards (client notes, Nov 2026) ---------- */
+Object.assign(TA, {
+  'Chit details': 'சீட்டு விவரங்கள்', 'Tap to add': 'சேர்க்கத் தட்டவும்', 'Check this': 'இதைச் சரிபார்க்கவும்', 'Save': 'சேமி', 'Done': 'முடிந்தது',
+  'Members & months': 'உறுப்பினர்கள் & மாதங்கள்', 'How auction is held': 'ஏலம் நடக்கும் முறை', 'Bid limits': 'ஏல வரம்புகள்',
+  'More chits per person': 'ஒருவருக்கு கூடுதல் சீட்டுகள்', 'Payment rules': 'பணம் செலுத்தும் விதிகள்', 'Commission timing': 'கமிஷன் எடுக்கும் நேரம்',
+  'More commission rules': 'மேலும் கமிஷன் விதிகள்', 'More auction rules': 'மேலும் ஏல விதிகள்', 'In the app': 'செயலியில்', 'In person': 'நேரில்',
+  'With code': 'குறியீட்டுடன்', 'Chits': 'சீட்டுகள்', 'days': 'நாட்கள்', 'Rounding line to the organiser': 'மீதி பைசா அமைப்பாளருக்கு',
+  'Fill the cards marked in red': 'சிவப்பு அட்டைகளை நிரப்பவும்'
+});
